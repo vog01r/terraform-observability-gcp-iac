@@ -1,0 +1,68 @@
+- name: Install RKE2 and configure kubectl on GCE instance
+  hosts: all
+  become: true
+  vars:
+    terraform_outputs: "{{ lookup('file', './vars/terraform_output.json') | from_json }}"
+  tasks:
+
+    - name: Print instance IP
+      debug:
+        msg: "Instance IP is {{ terraform_outputs.instance_ip }}"
+
+    - name: Update apt cache
+      apt:
+        update_cache: yes
+
+    - name: Install required packages
+      apt:
+        name: 
+          - curl
+          - apt-transport-https
+        state: present
+
+    - name: Install RKE2
+      shell: |
+        curl -sfL https://get.rke2.io | INSTALL_RKE2_VERSION="v1.30.5+rke2r1" sh -
+        systemctl enable rke2-server.service
+        systemctl start rke2-server.service
+      args:
+        executable: /bin/bash
+
+    - name: Wait for RKE2 service to start
+      wait_for:
+        path: /etc/rancher/rke2/rke2.yaml
+        timeout: 60
+
+    - name: Copy kubeconfig to shared location
+      copy:
+        remote_src: yes
+        src: /etc/rancher/rke2/rke2.yaml
+        dest: /tmp/kubeconfig-rke2.yaml
+        owner: ubuntu
+        group: ubuntu
+        mode: 0644
+
+    - name: Install kubectl
+      shell: |
+        curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+        install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
+      args:
+        executable: /bin/bash
+
+    - name: Set kubeconfig for kubectl
+      shell: |
+        mkdir -p /home/{{ ansible_user }}/.kube
+        cp /tmp/kubeconfig-rke2.yaml /home/{{ ansible_user }}/.kube/config
+        chown -R {{ ansible_user }}:{{ ansible_user }} /home/{{ ansible_user }}/.kube
+      args:
+        executable: /bin/bash
+      become_user: "{{ ansible_user }}"
+
+
+    - name: Apply Rancher import command
+      shell: |
+        export KUBECONFIG=/home/{{ ansible_user }}/.kube/config
+        {{ terraform_outputs.import_command }}
+      args:
+        executable: /bin/bash
+      become_user: "{{ ansible_user }}"
