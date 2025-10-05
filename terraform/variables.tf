@@ -1,16 +1,24 @@
-variable "instance_name" {
-  default     = "rke2-node"
-  description = "Name of the GCE instance"
+variable "ssh_public_key_path" {
+  type    = string
+  default = "~/.ssh/id_rsa.pub"
 }
 
-variable "project" {
-  default = "[project GCP ID]"
+variable "machine_type" {
+  type    = string
+  default = "e2-micro"
 }
 
-variable "region" {
-  default = "us-central1"
+variable "boot_disk_gb" {
+  type    = number
+  default = 30
 }
 
-variable "zone" {
-  default = "europe-central2-a"
+variable "image_family" {
+  type    = string
+  default = "ubuntu-2204-lts"
+}
+
+variable "image_project" {
+  type    = string
+  default = "ubuntu-os-cloud"
 }

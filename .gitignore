@@ -1,0 +1,39 @@
+# Fichiers de clés et secrets
+key.json
+*.json
+*.key
+*.pem
+*.p12
+
+# Fichiers Terraform
+*.tfstate
+*.tfstate.*
+*.tfvars
+*.tfvars.json
+.terraform/
+.terraform.lock.hcl
+crash.log
+crash.*.log
+
+# Fichiers de logs
+*.log
+
+# Fichiers temporaires
+*.tmp
+*.temp
+.DS_Store
+Thumbs.db
+
+# Fichiers d'environnement
+.env
+.env.local
+.env.*.local
+
+# Fichiers de cache
+.cache/
+*.cache
+
+# Fichiers de sauvegarde
+*.bak
+*.backup
+*~

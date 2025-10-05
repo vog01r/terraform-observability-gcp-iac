@@ -1,68 +1,165 @@
-- name: Install RKE2 and configure kubectl on GCE instance
-  hosts: all
+- name: Configuration de la gateway main-gw
+  hosts: main-gw
   become: true
+  gather_facts: true
   vars:
-    terraform_outputs: "{{ lookup('file', './vars/terraform_output.json') | from_json }}"
+    external_interface: "{{ ansible_default_ipv4.interface }}"
   tasks:
-
-    - name: Print instance IP
-      debug:
-        msg: "Instance IP is {{ terraform_outputs.instance_ip }}"
-
-    - name: Update apt cache
+    - name: Mise à jour du cache APT
       apt:
-        update_cache: yes
+        update_cache: true
 
-    - name: Install required packages
+    - name: Installation des paquets requis pour le NAT
       apt:
-        name: 
-          - curl
-          - apt-transport-https
+        name:
+          - iptables-persistent
         state: present
+        install_recommends: false
+      environment:
+        DEBIAN_FRONTEND: noninteractive
 
-    - name: Install RKE2
-      shell: |
-        curl -sfL https://get.rke2.io | INSTALL_RKE2_VERSION="v1.30.5+rke2r1" sh -
-        systemctl enable rke2-server.service
-        systemctl start rke2-server.service
+    - name: Activer le routage IP
+      sysctl:
+        name: net.ipv4.ip_forward
+        value: '1'
+        state: present
+        reload: true
+
+    - name: Conserver l'adresse privée de la gateway
+      set_fact:
+        main_gateway_private_ip: "{{ ansible_default_ipv4.address }}"
+
+    - name: Vérifier la présence de la règle MASQUERADE
+      command: iptables -t nat -C POSTROUTING -o {{ external_interface }} -j MASQUERADE
+      register: nat_rule_check
+      changed_when: false
+      failed_when: nat_rule_check.rc not in [0, 1]
+
+    - name: Ajouter la règle MASQUERADE si nécessaire
+      command: iptables -t nat -A POSTROUTING -o {{ external_interface }} -j MASQUERADE
+      when: nat_rule_check.rc == 1
+
+    - name: Sauvegarder les règles iptables
+      shell: iptables-save > /etc/iptables/rules.v4
       args:
         executable: /bin/bash
 
-    - name: Wait for RKE2 service to start
-      wait_for:
-        path: /etc/rancher/rke2/rke2.yaml
-        timeout: 60
+- name: Mise à jour de la machine main-k8s
+  hosts: main-k8s
+  become: true
+  tasks:
+    - name: Mise à jour du cache APT
+      apt:
+        update_cache: true
 
-    - name: Copy kubeconfig to shared location
+    - name: Mise à niveau complète
+      apt:
+        upgrade: dist
+
+- name: Configuration réseau de main-k8s vers main-gw
+  hosts: main-k8s
+  become: true
+  gather_facts: true
+  vars:
+    gateway_ip: "{{ hostvars['main-gw']['main_gateway_private_ip'] | default('192.168.10.6') }}"
+  tasks:
+    - name: Définir la route par défaut via main-gw
       copy:
-        remote_src: yes
-        src: /etc/rancher/rke2/rke2.yaml
-        dest: /tmp/kubeconfig-rke2.yaml
-        owner: ubuntu
-        group: ubuntu
-        mode: 0644
+        dest: /etc/netplan/99-gateway.yaml
+        content: |
+          network:
+            version: 2
+            ethernets:
+              {{ ansible_default_ipv4.interface }}:
+                dhcp4: true
+                routes:
+                  - to: 0.0.0.0/0
+                    via: {{ gateway_ip }}
+        owner: root
+        group: root
+        mode: '0644'
+      register: netplan_k8s
 
-    - name: Install kubectl
-      shell: |
-        curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
-        install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
-      args:
-        executable: /bin/bash
+    - name: Appliquer la configuration réseau
+      command: netplan apply
+      when: netplan_k8s.changed
 
-    - name: Set kubeconfig for kubectl
-      shell: |
-        mkdir -p /home/{{ ansible_user }}/.kube
-        cp /tmp/kubeconfig-rke2.yaml /home/{{ ansible_user }}/.kube/config
-        chown -R {{ ansible_user }}:{{ ansible_user }} /home/{{ ansible_user }}/.kube
-      args:
-        executable: /bin/bash
-      become_user: "{{ ansible_user }}"
+- name: Mise à jour de la machine main-obs
+  hosts: main-obs
+  become: true
+  tasks:
+    - name: Mise à jour du cache APT
+      apt:
+        update_cache: true
 
+    - name: Mise à niveau complète
+      apt:
+        upgrade: dist
 
-    - name: Apply Rancher import command
-      shell: |
-        export KUBECONFIG=/home/{{ ansible_user }}/.kube/config
-        {{ terraform_outputs.import_command }}
-      args:
-        executable: /bin/bash
-      become_user: "{{ ansible_user }}"
+- name: Configuration réseau de main-obs vers main-gw
+  hosts: main-obs
+  become: true
+  gather_facts: true
+  vars:
+    gateway_ip: "{{ hostvars['main-gw']['main_gateway_private_ip'] | default('192.168.10.6') }}"
+  tasks:
+    - name: Définir la route par défaut via main-gw
+      copy:
+        dest: /etc/netplan/99-gateway.yaml
+        content: |
+          network:
+            version: 2
+            ethernets:
+              {{ ansible_default_ipv4.interface }}:
+                dhcp4: true
+                routes:
+                  - to: 0.0.0.0/0
+                    via: {{ gateway_ip }}
+        owner: root
+        group: root
+        mode: '0644'
+      register: netplan_obs
+
+    - name: Appliquer la configuration réseau
+      command: netplan apply
+      when: netplan_obs.changed
+
+- name: Mise à jour de la machine main-app
+  hosts: main-app
+  become: true
+  tasks:
+    - name: Mise à jour du cache APT
+      apt:
+        update_cache: true
+
+    - name: Mise à niveau complète
+      apt:
+        upgrade: dist
+
+- name: Configuration réseau de main-app vers main-gw
+  hosts: main-app
+  become: true
+  gather_facts: true
+  vars:
+    gateway_ip: "{{ hostvars['main-gw']['main_gateway_private_ip'] | default('192.168.10.6') }}"
+  tasks:
+    - name: Définir la route par défaut via main-gw
+      copy:
+        dest: /etc/netplan/99-gateway.yaml
+        content: |
+          network:
+            version: 2
+            ethernets:
+              {{ ansible_default_ipv4.interface }}:
+                dhcp4: true
+                routes:
+                  - to: 0.0.0.0/0
+                    via: {{ gateway_ip }}
+        owner: root
+        group: root
+        mode: '0644'
+      register: netplan_app
+
+    - name: Appliquer la configuration réseau
+      command: netplan apply
+      when: netplan_app.changed

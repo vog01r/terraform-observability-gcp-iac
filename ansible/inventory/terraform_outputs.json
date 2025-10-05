@@ -1,0 +1,77 @@
+{
+  "app_private_ip": {
+    "sensitive": false,
+    "type": [
+      "object",
+      {
+        "main": "string"
+      }
+    ],
+    "value": {
+      "main": "192.168.10.13"
+    }
+  },
+  "bastion_public_ip": {
+    "sensitive": false,
+    "type": [
+      "object",
+      {
+        "main": "string"
+      }
+    ],
+    "value": {
+      "main": "35.239.158.223"
+    }
+  },
+  "import_command": {
+    "sensitive": false,
+    "type": "string",
+    "value": ""
+  },
+  "instance_ip": {
+    "sensitive": false,
+    "type": [
+      "object",
+      {
+        "main": "string"
+      }
+    ],
+    "value": {
+      "main": "192.168.10.6"
+    }
+  },
+  "k8s_private_ip": {
+    "sensitive": false,
+    "type": [
+      "object",
+      {
+        "main": "string"
+      }
+    ],
+    "value": {
+      "main": "192.168.10.11"
+    }
+  },
+  "network_name": {
+    "sensitive": false,
+    "type": "string",
+    "value": "vpc-d019"
+  },
+  "obs_private_ip": {
+    "sensitive": false,
+    "type": [
+      "object",
+      {
+        "main": "string"
+      }
+    ],
+    "value": {
+      "main": "192.168.10.12"
+    }
+  },
+  "subnet_name": {
+    "sensitive": false,
+    "type": "string",
+    "value": "subnet-d019"
+  }
+}
