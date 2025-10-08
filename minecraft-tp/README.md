@@ -65,7 +65,6 @@ ansible-galaxy install -r requirements.yml
 
 # Génération de l'inventaire dynamique
 terraform output -json > inventory.json
-python3 generate_inventory.py
 
 # Déploiement
 ansible-playbook -i inventory.yml playbook.yml

@@ -65,18 +65,6 @@ ansible-playbook -i inventory.yml playbook.yml
 - **Grafana** : `http://IP_MONITORING:3000`
 - **Login Grafana** : `admin` / `admin123`
 
-## 🎓 Messages pour les Groupes
-
-### Génération Automatique
-```bash
-cd minecraft-tp
-python3 scripts/generate_messages.py
-```
-
-### Utilisation du Prompt Cursor
-1. Ouvrir `prompts/message_generator_prompt.md`
-2. Copier le contenu dans Cursor
-3. Demander la génération de messages personnalisés
 
 ## 📁 Structure du Projet
 
@@ -94,13 +82,7 @@ minecraft-tp/
 │   └── requirements.yml      # Collections requises
 ├── scripts/                   # Scripts utilitaires
 │   ├── deploy.sh             # Déploiement automatique
-│   ├── destroy.sh            # Destruction
-│   └── generate_messages.py  # Générateur de messages
-├── prompts/                   # Prompts Cursor
-│   └── message_generator_prompt.md
-├── messages/                  # Messages générés
-│   ├── groupe1_message.md
-│   └── groupe2_message.md
+│   └── destroy.sh            # Destruction
 └── README.md                  # Documentation
 ```
 
