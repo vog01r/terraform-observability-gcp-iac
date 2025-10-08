@@ -1,0 +1,18 @@
+# Configuration pour TP Minecraft - Observabilité
+# Copiez ce fichier vers terraform.tfvars et modifiez les valeurs
+
+# ID du projet Google Cloud (obligatoire)
+project_id = "votre-projet-gcp-id"
+
+# Région et zone (optionnel, valeurs par défaut)
+region = "us-central1"
+zone   = "us-central1-a"
+
+# Type de machine (optionnel, valeur par défaut)
+machine_type = "e2-standard-2"
+
+# Utilisateur SSH (optionnel, valeur par défaut)
+ssh_user = "ubuntu"
+
+# Chemin vers la clé publique SSH (optionnel, valeur par défaut)
+ssh_public_key_path = "~/.ssh/id_rsa.pub"

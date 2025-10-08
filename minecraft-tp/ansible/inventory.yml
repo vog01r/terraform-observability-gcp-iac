@@ -1,0 +1,29 @@
+# Inventaire Ansible pour TP Minecraft - Observabilité
+
+all:
+  children:
+    minecraft_servers:
+      hosts:
+        minecraft-server:
+          ansible_host: "{{ minecraft_server_ip }}"
+          ansible_user: ubuntu
+          ansible_ssh_private_key_file: ~/.ssh/id_rsa
+          server_type: minecraft
+          java_memory: "2G"
+          minecraft_port: 25565
+    
+    monitoring_servers:
+      hosts:
+        monitoring-server:
+          ansible_host: "{{ monitoring_server_ip }}"
+          ansible_user: ubuntu
+          ansible_ssh_private_key_file: ~/.ssh/id_rsa
+          server_type: monitoring
+          prometheus_port: 9090
+          grafana_port: 3000
+          grafana_admin_password: "admin123"
+    
+    all_servers:
+      children:
+        - minecraft_servers
+        - monitoring_servers

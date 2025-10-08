@@ -1,0 +1,36 @@
+# Fichiers de clés et secrets
+key.json
+*.json
+*.key
+*.pem
+*.p12
+
+# Fichiers Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+.terraform.lock.hcl
+
+# Fichiers Ansible
+*.retry
+.ansible/
+ansible.cfg
+
+# Fichiers de logs et temporaires
+*.log
+*.backup
+*.swp
+*~
+
+# Fichiers de sortie
+terraform_outputs.json
+inventory.json
+
+# Fichiers de cache
+.cache/
+*.tmp
+
+# Fichiers de configuration locale
+.env
+.env.local

@@ -1,0 +1,15 @@
+# Requirements Ansible pour TP Minecraft - Observabilité
+
+collections:
+  - name: community.docker
+    version: ">=3.0.0"
+  - name: community.general
+    version: ">=5.0.0"
+  - name: ansible.posix
+    version: ">=1.4.0"
+
+# Plugins requis
+plugins:
+  - name: docker_compose
+    type: module
+    source: community.docker

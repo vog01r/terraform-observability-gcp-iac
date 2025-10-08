@@ -1,0 +1,462 @@
+---
+# Playbook principal pour TP Minecraft - Observabilité
+# Installation et configuration de Minecraft + Monitoring (Prometheus + Grafana)
+
+- name: "TP Minecraft - Configuration des serveurs"
+  hosts: all_servers
+  become: yes
+  gather_facts: yes
+  
+  vars:
+    minecraft_version: "1.20.4"
+    paper_build: "1300"
+    java_memory: "2G"
+    prometheus_version: "2.45.0"
+    grafana_version: "10.0.0"
+    node_exporter_version: "1.6.1"
+
+  tasks:
+    - name: "Mise à jour du système"
+      apt:
+        update_cache: yes
+        upgrade: yes
+        autoremove: yes
+      tags: [system, update]
+
+    - name: "Installation des paquets de base"
+      apt:
+        name:
+          - wget
+          - curl
+          - unzip
+          - htop
+          - vim
+          - tree
+        state: present
+      tags: [system, packages]
+
+- name: "Configuration du serveur Minecraft"
+  hosts: minecraft_servers
+  become: yes
+  
+  tasks:
+    - name: "Installation de Java 17"
+      apt:
+        name: openjdk-17-jdk
+        state: present
+      tags: [minecraft, java]
+
+    - name: "Création du répertoire Minecraft"
+      file:
+        path: /opt/minecraft
+        state: directory
+        owner: root
+        group: root
+        mode: '0755'
+      tags: [minecraft, directories]
+
+    - name: "Téléchargement du serveur Paper Minecraft"
+      get_url:
+        url: "https://api.papermc.io/v2/projects/paper/versions/{{ minecraft_version }}/builds/{{ paper_build }}/downloads/paper-{{ minecraft_version }}-{{ paper_build }}.jar"
+        dest: /opt/minecraft/paper.jar
+        mode: '0644'
+        owner: root
+        group: root
+      tags: [minecraft, download]
+
+    - name: "Création du script de démarrage Minecraft"
+      copy:
+        content: |
+          #!/bin/bash
+          cd /opt/minecraft
+          java -Xmx{{ java_memory }} -Xms1G -jar paper.jar nogui
+        dest: /opt/minecraft/start.sh
+        mode: '0755'
+        owner: root
+        group: root
+      tags: [minecraft, scripts]
+
+    - name: "Création du fichier eula.txt"
+      copy:
+        content: "eula=true"
+        dest: /opt/minecraft/eula.txt
+        mode: '0644'
+        owner: root
+        group: root
+      tags: [minecraft, config]
+
+    - name: "Configuration du serveur Minecraft (server.properties)"
+      copy:
+        content: |
+          # Configuration du serveur Minecraft pour TP
+          server-port=25565
+          gamemode=survival
+          difficulty=easy
+          max-players=20
+          motd=TP Observabilité - Serveur Minecraft
+          online-mode=false
+          enable-command-block=true
+          allow-flight=true
+          spawn-protection=0
+        dest: /opt/minecraft/server.properties
+        mode: '0644'
+        owner: root
+        group: root
+      tags: [minecraft, config]
+
+    - name: "Création du service systemd pour Minecraft"
+      copy:
+        content: |
+          [Unit]
+          Description=Minecraft Server - TP Observabilité
+          After=network.target
+
+          [Service]
+          Type=simple
+          User=root
+          WorkingDirectory=/opt/minecraft
+          ExecStart=/opt/minecraft/start.sh
+          Restart=always
+          RestartSec=10
+          StandardOutput=journal
+          StandardError=journal
+
+          [Install]
+          WantedBy=multi-user.target
+        dest: /etc/systemd/system/minecraft.service
+        mode: '0644'
+        owner: root
+        group: root
+      tags: [minecraft, systemd]
+
+    - name: "Installation de Node Exporter"
+      block:
+        - name: "Téléchargement de Node Exporter"
+          get_url:
+            url: "https://github.com/prometheus/node_exporter/releases/download/v{{ node_exporter_version }}/node_exporter-{{ node_exporter_version }}.linux-amd64.tar.gz"
+            dest: /tmp/node_exporter.tar.gz
+            mode: '0644'
+
+        - name: "Extraction de Node Exporter"
+          unarchive:
+            src: /tmp/node_exporter.tar.gz
+            dest: /tmp/
+            remote_src: yes
+
+        - name: "Installation de Node Exporter"
+          copy:
+            src: "/tmp/node_exporter-{{ node_exporter_version }}.linux-amd64/node_exporter"
+            dest: /usr/local/bin/node_exporter
+            mode: '0755'
+            owner: root
+            group: root
+            remote_src: yes
+
+        - name: "Nettoyage des fichiers temporaires"
+          file:
+            path: "{{ item }}"
+            state: absent
+          loop:
+            - /tmp/node_exporter.tar.gz
+            - /tmp/node_exporter-{{ node_exporter_version }}.linux-amd64
+      tags: [monitoring, node_exporter]
+
+    - name: "Création du service systemd pour Node Exporter"
+      copy:
+        content: |
+          [Unit]
+          Description=Node Exporter - Métriques système
+          After=network.target
+
+          [Service]
+          Type=simple
+          User=root
+          ExecStart=/usr/local/bin/node_exporter
+          Restart=always
+          RestartSec=5
+
+          [Install]
+          WantedBy=multi-user.target
+        dest: /etc/systemd/system/node_exporter.service
+        mode: '0644'
+        owner: root
+        group: root
+      tags: [monitoring, systemd]
+
+    - name: "Rechargement et activation des services"
+      systemd:
+        daemon_reload: yes
+        enabled: yes
+        state: started
+        name: "{{ item }}"
+      loop:
+        - minecraft
+        - node_exporter
+      tags: [services, start]
+
+    - name: "Vérification du statut des services"
+      systemd:
+        name: "{{ item }}"
+      register: service_status
+      loop:
+        - minecraft
+        - node_exporter
+      tags: [services, status]
+
+    - name: "Affichage du statut des services"
+      debug:
+        msg: "Service {{ item.item }}: {{ item.status.ActiveState }}"
+      loop: "{{ service_status.results }}"
+      tags: [services, status]
+
+- name: "Configuration du serveur de monitoring"
+  hosts: monitoring_servers
+  become: yes
+  
+  tasks:
+    - name: "Installation de Docker"
+      block:
+        - name: "Installation des dépendances Docker"
+          apt:
+            name:
+              - apt-transport-https
+              - ca-certificates
+              - curl
+              - gnupg
+              - lsb-release
+            state: present
+
+        - name: "Ajout de la clé GPG Docker"
+          apt_key:
+            url: https://download.docker.com/linux/ubuntu/gpg
+            state: present
+
+        - name: "Ajout du repository Docker"
+          apt_repository:
+            repo: "deb [arch=amd64] https://download.docker.com/linux/ubuntu {{ ansible_distribution_release }} stable"
+            state: present
+
+        - name: "Installation de Docker"
+          apt:
+            name:
+              - docker-ce
+              - docker-ce-cli
+              - containerd.io
+              - docker-buildx-plugin
+              - docker-compose-plugin
+            state: present
+            update_cache: yes
+
+        - name: "Ajout de l'utilisateur ubuntu au groupe docker"
+          user:
+            name: ubuntu
+            groups: docker
+            append: yes
+      tags: [docker, install]
+
+    - name: "Installation de Docker Compose standalone"
+      block:
+        - name: "Téléchargement de Docker Compose"
+          get_url:
+            url: "https://github.com/docker/compose/releases/download/v2.21.0/docker-compose-linux-x86_64"
+            dest: /usr/local/bin/docker-compose
+            mode: '0755'
+            owner: root
+            group: root
+      tags: [docker, compose]
+
+    - name: "Création des répertoires de configuration"
+      file:
+        path: "{{ item }}"
+        state: directory
+        owner: root
+        group: root
+        mode: '0755'
+      loop:
+        - /opt/monitoring
+        - /opt/monitoring/prometheus
+        - /opt/monitoring/grafana
+        - /opt/monitoring/grafana/provisioning
+        - /opt/monitoring/grafana/provisioning/datasources
+        - /opt/monitoring/grafana/provisioning/dashboards
+      tags: [monitoring, directories]
+
+    - name: "Configuration Prometheus"
+      copy:
+        content: |
+          global:
+            scrape_interval: 15s
+            evaluation_interval: 15s
+
+          rule_files:
+            # - "first_rules.yml"
+            # - "second_rules.yml"
+
+          scrape_configs:
+            - job_name: 'prometheus'
+              static_configs:
+                - targets: ['localhost:9090']
+
+            - job_name: 'minecraft-server'
+              static_configs:
+                - targets: ['{{ hostvars['minecraft-server']['ansible_default_ipv4']['address'] }}:9100']
+              scrape_interval: 10s
+              metrics_path: /metrics
+
+            - job_name: 'node-exporter'
+              static_configs:
+                - targets: ['{{ hostvars['minecraft-server']['ansible_default_ipv4']['address'] }}:9100']
+              scrape_interval: 15s
+        dest: /opt/monitoring/prometheus/prometheus.yml
+        mode: '0644'
+        owner: root
+        group: root
+      tags: [monitoring, prometheus]
+
+    - name: "Configuration Grafana - Datasource Prometheus"
+      copy:
+        content: |
+          apiVersion: 1
+
+          datasources:
+            - name: Prometheus
+              type: prometheus
+              access: proxy
+              url: http://prometheus:9090
+              isDefault: true
+              editable: true
+        dest: /opt/monitoring/grafana/provisioning/datasources/prometheus.yml
+        mode: '0644'
+        owner: root
+        group: root
+      tags: [monitoring, grafana]
+
+    - name: "Configuration Docker Compose"
+      copy:
+        content: |
+          version: '3.8'
+
+          services:
+            prometheus:
+              image: prom/prometheus:{{ prometheus_version }}
+              container_name: prometheus
+              ports:
+                - "9090:9090"
+              volumes:
+                - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+                - prometheus_data:/prometheus
+              command:
+                - '--config.file=/etc/prometheus/prometheus.yml'
+                - '--storage.tsdb.path=/prometheus'
+                - '--web.console.libraries=/etc/prometheus/console_libraries'
+                - '--web.console.templates=/etc/prometheus/consoles'
+                - '--web.enable-lifecycle'
+                - '--web.enable-admin-api'
+              restart: unless-stopped
+              networks:
+                - monitoring
+
+            grafana:
+              image: grafana/grafana:{{ grafana_version }}
+              container_name: grafana
+              ports:
+                - "3000:3000"
+              environment:
+                - GF_SECURITY_ADMIN_PASSWORD={{ grafana_admin_password }}
+                - GF_USERS_ALLOW_SIGN_UP=false
+                - GF_INSTALL_PLUGINS=grafana-piechart-panel
+              volumes:
+                - grafana_data:/var/lib/grafana
+                - ./grafana/provisioning:/etc/grafana/provisioning
+              restart: unless-stopped
+              networks:
+                - monitoring
+
+          volumes:
+            prometheus_data:
+            grafana_data:
+
+          networks:
+            monitoring:
+              driver: bridge
+        dest: /opt/monitoring/docker-compose.yml
+        mode: '0644'
+        owner: root
+        group: root
+      tags: [monitoring, docker-compose]
+
+    - name: "Démarrage des services de monitoring"
+      docker_compose:
+        project_src: /opt/monitoring
+        state: present
+        recreate: always
+      tags: [monitoring, start]
+
+    - name: "Vérification des conteneurs"
+      docker_container_info:
+        name: "{{ item }}"
+      register: container_info
+      loop:
+        - prometheus
+        - grafana
+      tags: [monitoring, status]
+
+    - name: "Affichage du statut des conteneurs"
+      debug:
+        msg: "Conteneur {{ item.item }}: {{ item.container.State.Status }}"
+      loop: "{{ container_info.results }}"
+      tags: [monitoring, status]
+
+- name: "Vérification finale des services"
+  hosts: all_servers
+  become: yes
+  
+  tasks:
+    - name: "Test de connectivité des ports"
+      wait_for:
+        port: "{{ item.port }}"
+        host: "{{ item.host }}"
+        timeout: 30
+      loop:
+        - { port: 22, host: "localhost" }
+        - { port: 25565, host: "localhost" }
+      when: inventory_hostname in groups['minecraft_servers']
+      tags: [verification, ports]
+
+    - name: "Test de connectivité des ports de monitoring"
+      wait_for:
+        port: "{{ item.port }}"
+        host: "{{ item.host }}"
+        timeout: 30
+      loop:
+        - { port: 22, host: "localhost" }
+        - { port: 9090, host: "localhost" }
+        - { port: 3000, host: "localhost" }
+      when: inventory_hostname in groups['monitoring_servers']
+      tags: [verification, ports]
+
+    - name: "Affichage des informations de connexion"
+      debug:
+        msg: |
+          ========================================
+          TP MINECRAFT - OBSERVABILITÉ
+          ========================================
+          
+          Serveur Minecraft:
+          - IP: {{ hostvars['minecraft-server']['ansible_default_ipv4']['address'] }}
+          - Port: 25565
+          - Connexion: minecraft://{{ hostvars['minecraft-server']['ansible_default_ipv4']['address'] }}:25565
+          
+          Serveur de Monitoring:
+          - IP: {{ hostvars['monitoring-server']['ansible_default_ipv4']['address'] }}
+          - Prometheus: http://{{ hostvars['monitoring-server']['ansible_default_ipv4']['address'] }}:9090
+          - Grafana: http://{{ hostvars['monitoring-server']['ansible_default_ipv4']['address'] }}:3000
+          - Login Grafana: admin / {{ grafana_admin_password }}
+          
+          Commandes SSH:
+          - Minecraft: ssh ubuntu@{{ hostvars['minecraft-server']['ansible_default_ipv4']['address'] }}
+          - Monitoring: ssh ubuntu@{{ hostvars['monitoring-server']['ansible_default_ipv4']['address'] }}
+          
+          ========================================
+      when: inventory_hostname == groups['monitoring_servers'][0]
+      tags: [verification, info]
