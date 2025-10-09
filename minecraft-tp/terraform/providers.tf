@@ -16,7 +16,8 @@ terraform {
 
 # Configuration du provider Google Cloud
 provider "google" {
-  project = var.project_id
-  region  = var.region
-  zone    = var.zone
+  project     = "level-surfer-473817-p5"
+  region      = "us-central1"
+  zone        = "us-central1-a"
+  credentials = file("${path.module}/../../key.json")
 }
