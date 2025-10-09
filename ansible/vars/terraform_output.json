@@ -1,0 +1,1 @@
+{"app_private_ip":"192.168.10.4","bastion_public_ip":"34.30.207.137","import_command":"","instance_ip":{"main-app":"192.168.10.4","main-gw":"192.168.10.253","main-k8s":"192.168.10.6","main-obs":"192.168.10.3"},"k8s_private_ip":"192.168.10.6","network_name":"vpc-47ac","obs_private_ip":"192.168.10.3","subnet_name":"subnet-47ac"}
