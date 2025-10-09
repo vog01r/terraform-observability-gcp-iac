@@ -1,48 +1,15 @@
-- name: Configuration de la gateway main-gw
+- name: Configuration de la gateway main-gw (sans NAT)
   hosts: main-gw
   become: true
   gather_facts: true
-  vars:
-    external_interface: "{{ ansible_default_ipv4.interface }}"
   tasks:
     - name: Mise à jour du cache APT
       apt:
         update_cache: true
 
-    - name: Installation des paquets requis pour le NAT
+    - name: Mise à niveau complète
       apt:
-        name:
-          - iptables-persistent
-        state: present
-        install_recommends: false
-      environment:
-        DEBIAN_FRONTEND: noninteractive
-
-    - name: Activer le routage IP
-      sysctl:
-        name: net.ipv4.ip_forward
-        value: '1'
-        state: present
-        reload: true
-
-    - name: Conserver l'adresse privée de la gateway
-      set_fact:
-        main_gateway_private_ip: "{{ ansible_default_ipv4.address }}"
-
-    - name: Vérifier la présence de la règle MASQUERADE
-      command: iptables -t nat -C POSTROUTING -o {{ external_interface }} -j MASQUERADE
-      register: nat_rule_check
-      changed_when: false
-      failed_when: nat_rule_check.rc not in [0, 1]
-
-    - name: Ajouter la règle MASQUERADE si nécessaire
-      command: iptables -t nat -A POSTROUTING -o {{ external_interface }} -j MASQUERADE
-      when: nat_rule_check.rc == 1
-
-    - name: Sauvegarder les règles iptables
-      shell: iptables-save > /etc/iptables/rules.v4
-      args:
-        executable: /bin/bash
+        upgrade: dist
 
 - name: Mise à jour de la machine main-k8s
   hosts: main-k8s
@@ -56,33 +23,7 @@
       apt:
         upgrade: dist
 
-- name: Configuration réseau de main-k8s vers main-gw
-  hosts: main-k8s
-  become: true
-  gather_facts: true
-  vars:
-    gateway_ip: "{{ hostvars['main-gw']['main_gateway_private_ip'] | default('192.168.10.6') }}"
-  tasks:
-    - name: Définir la route par défaut via main-gw
-      copy:
-        dest: /etc/netplan/99-gateway.yaml
-        content: |
-          network:
-            version: 2
-            ethernets:
-              {{ ansible_default_ipv4.interface }}:
-                dhcp4: true
-                routes:
-                  - to: 0.0.0.0/0
-                    via: {{ gateway_ip }}
-        owner: root
-        group: root
-        mode: '0644'
-      register: netplan_k8s
-
-    - name: Appliquer la configuration réseau
-      command: netplan apply
-      when: netplan_k8s.changed
+# Configuration réseau supprimée - main-k8s a maintenant sa propre IP publique
 
 - name: Mise à jour de la machine main-obs
   hosts: main-obs
@@ -96,33 +37,7 @@
       apt:
         upgrade: dist
 
-- name: Configuration réseau de main-obs vers main-gw
-  hosts: main-obs
-  become: true
-  gather_facts: true
-  vars:
-    gateway_ip: "{{ hostvars['main-gw']['main_gateway_private_ip'] | default('192.168.10.6') }}"
-  tasks:
-    - name: Définir la route par défaut via main-gw
-      copy:
-        dest: /etc/netplan/99-gateway.yaml
-        content: |
-          network:
-            version: 2
-            ethernets:
-              {{ ansible_default_ipv4.interface }}:
-                dhcp4: true
-                routes:
-                  - to: 0.0.0.0/0
-                    via: {{ gateway_ip }}
-        owner: root
-        group: root
-        mode: '0644'
-      register: netplan_obs
-
-    - name: Appliquer la configuration réseau
-      command: netplan apply
-      when: netplan_obs.changed
+# Configuration réseau supprimée - main-obs a maintenant sa propre IP publique
 
 - name: Mise à jour de la machine main-app
   hosts: main-app
@@ -136,30 +51,4 @@
       apt:
         upgrade: dist
 
-- name: Configuration réseau de main-app vers main-gw
-  hosts: main-app
-  become: true
-  gather_facts: true
-  vars:
-    gateway_ip: "{{ hostvars['main-gw']['main_gateway_private_ip'] | default('192.168.10.6') }}"
-  tasks:
-    - name: Définir la route par défaut via main-gw
-      copy:
-        dest: /etc/netplan/99-gateway.yaml
-        content: |
-          network:
-            version: 2
-            ethernets:
-              {{ ansible_default_ipv4.interface }}:
-                dhcp4: true
-                routes:
-                  - to: 0.0.0.0/0
-                    via: {{ gateway_ip }}
-        owner: root
-        group: root
-        mode: '0644'
-      register: netplan_app
-
-    - name: Appliquer la configuration réseau
-      command: netplan apply
-      when: netplan_app.changed
+# Configuration réseau supprimée - main-app a maintenant sa propre IP publique

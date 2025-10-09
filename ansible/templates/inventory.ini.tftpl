@@ -1,23 +1,23 @@
 [bastion]
 %{ for s in keys(students) ~}
-${s}-gw ansible_host=${bastion_public_ip[s]} student_uid=${s} bastion_host=${bastion_public_ip[s]}
+${s}-gw ansible_host=${bastion_public_ip[s]} student_uid=${s}
 %{ endfor ~}
 
 [k8s]
 %{ for s in keys(students) ~}
-${s}-k8s ansible_host=${k8s_private_ip[s]} student_uid=${s} bastion_host=${bastion_public_ip[s]}
+${s}-k8s ansible_host=${k8s_public_ip[s]} student_uid=${s}
 %{ endfor ~}
 
 [observability]
 %{ for s in keys(students) ~}
-${s}-obs ansible_host=${obs_private_ip[s]} student_uid=${s} bastion_host=${bastion_public_ip[s]}
+${s}-obs ansible_host=${obs_public_ip[s]} student_uid=${s}
 %{ endfor ~}
 
 [app]
 %{ for s in keys(students) ~}
-${s}-app ansible_host=${app_private_ip[s]} student_uid=${s} bastion_host=${bastion_public_ip[s]}
+${s}-app ansible_host=${app_public_ip[s]} student_uid=${s}
 %{ endfor ~}
 
 [all:vars]
 ansible_user=ubuntu
-ansible_ssh_common_args='-o ProxyCommand="ssh -W %h:%p -q ubuntu@{{ bastion_host }}"'
+# Plus de proxy SSH - accès direct aux IPs publiques
