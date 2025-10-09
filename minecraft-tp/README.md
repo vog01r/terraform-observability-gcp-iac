@@ -1,8 +1,9 @@
-# TP Minecraft - Observabilité avec Prometheus et Grafana
+# TP Minecraft - Observabilité
 
-## 🎮 Description du Projet
-
-Ce TP ludique propose d'installer et de monitorer un serveur Minecraft en utilisant les technologies d'observabilité modernes. L'objectif est d'apprendre Terraform, Ansible, Prometheus et Grafana de manière pratique et amusante.
+Ce projet déploie une infrastructure complète sur Google Cloud Platform avec :
+- Un serveur Minecraft utilisant LinuxGSM
+- Un serveur de monitoring avec Prometheus et Grafana
+- Configuration automatique des métriques et alertes
 
 ## 🏗️ Architecture
 
@@ -10,42 +11,52 @@ Ce TP ludique propose d'installer et de monitorer un serveur Minecraft en utilis
 ┌─────────────────────┐    ┌─────────────────────┐
 │   Serveur Minecraft │    │  Serveur Monitoring │
 │                     │    │                     │
-│  - Minecraft Server │    │  - Prometheus       │
-│  - Node Exporter    │    │  - Grafana          │
-│  - Port 25565       │    │  - Ports 9090/3000  │
-│                     │    │                     │
-│  IP Publique        │    │  IP Publique        │
+│  - LinuxGSM         │    │  - Prometheus       │
+│  - Node Exporter    │◄───┤  - Grafana          │
+│  - Port 25565       │    │  - Node Exporter    │
+│  - Port 9100        │    │  - Port 9090        │
+│                     │    │  - Port 3000        │
 └─────────────────────┘    └─────────────────────┘
 ```
 
-## 🚀 Déploiement Rapide
+## 📋 Prérequis
 
-### Prérequis
+- [Terraform](https://www.terraform.io/downloads.html) >= 1.0
+- [Google Cloud CLI](https://cloud.google.com/sdk/docs/install)
+- Clé SSH générée (`ssh-keygen -t rsa`)
+- Compte Google Cloud avec facturation activée
 
-1. **Google Cloud Platform** configuré
-2. **Terraform** installé
-3. **Ansible** installé
-4. **Clés SSH** configurées
+## 🚀 Déploiement rapide
 
-### 1. Configuration des variables
+### 1. Configuration initiale
 
 ```bash
-cd minecraft-tp/terraform
+# Cloner le projet
+git clone <votre-repo>
+cd minecraft-tp
+
+# Authentification Google Cloud
+gcloud auth login
+gcloud auth application-default login
+
+# Configuration du projet
+cd terraform
 cp terraform.tfvars.example terraform.tfvars
+# Modifiez terraform.tfvars avec votre project_id
 ```
 
-Éditez `terraform.tfvars` :
-```hcl
-project_id = "votre-projet-gcp"
-region     = "us-central1"
-zone       = "us-central1-a"
-machine_type = "e2-standard-2"
+### 2. Déploiement automatique
+
+```bash
+# Déploiement complet avec tests
+./scripts/deploy.sh
 ```
 
-### 2. Déploiement Terraform
+### 3. Déploiement manuel
 
 ```bash
 # Initialisation
+cd terraform
 terraform init
 
 # Planification
@@ -55,160 +66,168 @@ terraform plan
 terraform apply
 ```
 
-### 3. Configuration Ansible
-
-```bash
-cd ../ansible
-
-# Installation des collections
-ansible-galaxy install -r requirements.yml
-
-# Génération de l'inventaire dynamique
-terraform output -json > inventory.json
-
-# Déploiement
-ansible-playbook -i inventory.yml playbook.yml
-```
-
-## 🎯 Accès aux Services
+## 🎮 Utilisation
 
 ### Serveur Minecraft
-- **IP** : Voir `terraform output minecraft_server_ip`
-- **Port** : 25565
-- **Connexion** : `minecraft://IP:25565`
+
+Le serveur Minecraft est installé avec LinuxGSM et accessible sur le port 25565.
+
+**Commandes LinuxGSM disponibles :**
+```bash
+# Se connecter au serveur
+ssh -i ~/.ssh/id_rsa ubuntu@<IP_MINCRAFT>
+
+# Passer à l'utilisateur mcserver
+su - mcserver
+
+# Commandes LinuxGSM
+./mcserver start          # Démarrer le serveur
+./mcserver stop           # Arrêter le serveur
+./mcserver restart        # Redémarrer le serveur
+./mcserver console        # Console en temps réel
+./mcserver update         # Mettre à jour le serveur
+./mcserver backup         # Créer une sauvegarde
+./mcserver monitor        # Vérifier le statut
+./mcserver details        # Informations détaillées
+```
+
+**Informations de connexion :**
+- Utilisateur : `mcserver`
+- Mot de passe : `jE5Mzg1NDc3M`
+- Port : `25565`
 
 ### Monitoring
-- **Prometheus** : `http://IP_MONITORING:9090`
-- **Grafana** : `http://IP_MONITORING:3000`
-- **Login** : `admin` / `admin123`
 
-## 📊 Métriques Disponibles
+#### Prometheus
+- URL : `http://<IP_MONITORING>:9090`
+- Métriques système et serveur Minecraft
+- Alertes configurées pour CPU, mémoire, disque
 
-### Node Exporter (Serveur Minecraft)
-- CPU, RAM, Disque
-- Réseau, Processus
-- Système de fichiers
+#### Grafana
+- URL : `http://<IP_MONITORING>:3000`
+- Utilisateur : `admin`
+- Mot de passe : `admin123`
+- Dashboard Minecraft pré-configuré
 
-### Prometheus
-- Métriques système en temps réel
-- Historique des données
-- Requêtes PromQL
+## 🧪 Tests
 
-### Grafana
-- Dashboards prédéfinis
-- Visualisations personnalisées
-- Alertes configurables
-
-## 🛠️ Commandes Utiles
-
-### Gestion du serveur Minecraft
 ```bash
-# Connexion SSH
-ssh ubuntu@IP_MINECRAFT
+# Test complet du déploiement
+./scripts/test-deployment.sh
 
-# Statut du service
-sudo systemctl status minecraft
+# Tests manuels
+# Test Minecraft
+nc -zv <IP_MINCRAFT> 25565
 
-# Redémarrage
-sudo systemctl restart minecraft
+# Test Prometheus
+curl http://<IP_MONITORING>:9090/api/v1/status/config
 
-# Logs
-sudo journalctl -u minecraft -f
+# Test Grafana
+curl http://<IP_MONITORING>:3000/api/health
 ```
 
-### Gestion du monitoring
+## 📊 Métriques disponibles
+
+### Métriques système (Node Exporter)
+- CPU usage
+- Memory usage
+- Disk usage
+- Network traffic
+- Load average
+
+### Métriques Minecraft
+- Serveur up/down
+- Nombre de joueurs connectés
+- Performance du serveur
+
+## 🔧 Configuration
+
+### Variables Terraform
+
+| Variable | Description | Défaut |
+|----------|-------------|---------|
+| `project_id` | ID du projet GCP | Obligatoire |
+| `region` | Région GCP | `us-central1` |
+| `zone` | Zone GCP | `us-central1-a` |
+| `machine_type` | Type de machine | `e2-standard-2` |
+| `ssh_user` | Utilisateur SSH | `ubuntu` |
+| `ssh_public_key_path` | Chemin clé SSH | `~/.ssh/id_rsa.pub` |
+
+### Personnalisation
+
+#### Modifier la version Minecraft
+Éditez `scripts/install-minecraft-linuxgsm.sh` :
 ```bash
-# Connexion SSH
-ssh ubuntu@IP_MONITORING
-
-# Statut des conteneurs
-docker ps
-
-# Logs Prometheus
-docker logs prometheus
-
-# Logs Grafana
-docker logs grafana
+# Changer la version Paper
+wget -O paper.jar https://api.papermc.io/v2/projects/paper/versions/1.20.4/builds/1300/downloads/paper-1.20.4-1300.jar
 ```
 
-## 📈 Dashboards Grafana
-
-### Dashboard Node Exporter
-- **CPU Usage** : Utilisation processeur
-- **Memory Usage** : Utilisation mémoire
-- **Disk I/O** : Activité disque
-- **Network Traffic** : Trafic réseau
-
-### Dashboard Minecraft (Custom)
-- **Server Status** : Statut du serveur
-- **Player Count** : Nombre de joueurs
-- **TPS** : Ticks par seconde
-- **Memory Usage** : Mémoire Java
-
-## 🔧 Personnalisation
-
-### Configuration Minecraft
-```bash
-# Édition de la configuration
-sudo vim /opt/minecraft/server.properties
-
-# Redémarrage après modification
-sudo systemctl restart minecraft
+#### Ajouter des métriques personnalisées
+Éditez `scripts/install-monitoring.sh` :
+```yaml
+# Ajouter des targets Prometheus
+- job_name: 'custom-metrics'
+  static_configs:
+    - targets: ['custom-server:9100']
 ```
 
-### Configuration Prometheus
-```bash
-# Édition de la configuration
-sudo vim /opt/monitoring/prometheus/prometheus.yml
+## 🗑️ Nettoyage
 
-# Redémarrage
-cd /opt/monitoring
-docker-compose restart prometheus
+```bash
+# Supprimer l'infrastructure
+cd terraform
+terraform destroy
+
+# Confirmer la suppression
+yes
 ```
 
-## 🎓 Objectifs Pédagogiques
+## 📝 Logs et débogage
 
-1. **Infrastructure as Code** avec Terraform
-2. **Configuration Management** avec Ansible
-3. **Monitoring** avec Prometheus
-4. **Visualisation** avec Grafana
-5. **Métriques applicatives** et système
-6. **Dashboards** personnalisés
+### Logs des services
+```bash
+# Logs LinuxGSM
+journalctl -u minecraft -f
 
-## 🐛 Dépannage
+# Logs Node Exporter
+journalctl -u node_exporter -f
 
-### Problèmes courants
+# Logs Docker (monitoring)
+docker-compose logs -f
+```
 
-1. **Minecraft ne démarre pas**
-   ```bash
-   sudo journalctl -u minecraft -f
-   # Vérifier les logs Java
-   ```
+### Débogage
+```bash
+# Statut des services
+systemctl status minecraft
+systemctl status node_exporter
 
-2. **Prometheus ne collecte pas de métriques**
-   ```bash
-   # Vérifier la connectivité
-   curl http://IP_MINECRAFT:9100/metrics
-   ```
+# Test de connectivité
+./mcserver debug
+```
 
-3. **Grafana ne se connecte pas à Prometheus**
-   ```bash
-   # Vérifier la configuration
-   docker logs grafana
-   ```
+## 🔒 Sécurité
+
+- Firewall configuré pour les ports nécessaires uniquement
+- Service Accounts avec permissions minimales
+- Communication interne sécurisée
+- Mots de passe par défaut à changer en production
 
 ## 📚 Ressources
 
-- [Documentation Terraform](https://terraform.io/docs)
-- [Documentation Ansible](https://docs.ansible.com)
-- [Documentation Prometheus](https://prometheus.io/docs)
-- [Documentation Grafana](https://grafana.com/docs)
-- [Paper Minecraft Server](https://papermc.io)
+- [LinuxGSM Documentation](https://docs.linuxgsm.com/)
+- [Prometheus Documentation](https://prometheus.io/docs/)
+- [Grafana Documentation](https://grafana.com/docs/)
+- [Terraform Google Provider](https://registry.terraform.io/providers/hashicorp/google/latest/docs)
 
-## 🎉 Conclusion
+## 🆘 Support
 
-Ce TP permet d'apprendre l'observabilité de manière ludique en monitorant un serveur Minecraft. Les étudiants peuvent expérimenter avec les métriques, créer des dashboards personnalisés et comprendre l'importance du monitoring dans un environnement de production.
+En cas de problème :
+1. Vérifiez les logs des services
+2. Testez la connectivité réseau
+3. Vérifiez les permissions GCP
+4. Consultez la documentation des outils
 
----
+## 📄 Licence
 
-**Note** : Ce TP est conçu pour être éducatif et ludique. Les métriques peuvent varier selon l'utilisation du serveur Minecraft.
+Ce projet est fourni à des fins éducatives dans le cadre du TP Minecraft - Observabilité.

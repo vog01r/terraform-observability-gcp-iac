@@ -46,6 +46,20 @@ resource "google_compute_firewall" "allow_ssh_all" {
   # Pas de target_tags = autorise SSH sur toutes les VMs
 }
 
+# Règle firewall pour autoriser HTTP/HTTPS sur toutes les VMs
+resource "google_compute_firewall" "allow_http_https" {
+  name    = format("allow-http-https-%s", random_id.network.hex)
+  network = google_compute_network.observa_vpc.id
+
+  allow {
+    protocol = "tcp"
+    ports    = ["80", "443", "3000", "9090", "9100"]
+  }
+
+  source_ranges = ["0.0.0.0/0"]
+  # Pas de target_tags = autorise HTTP/HTTPS sur toutes les VMs
+}
+
 # Route par défaut supprimée - chaque VM aura sa propre IP publique
 
 resource "google_compute_address" "ext_ip" {
