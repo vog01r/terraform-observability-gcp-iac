@@ -32,7 +32,19 @@ resource "google_compute_subnetwork" "observa_subnet" {
   network       = google_compute_network.observa_vpc.id
 }
 
-# Toutes les restrictions firewall supprimées - accès libre à toutes les VMs
+# Règle firewall pour autoriser SSH sur toutes les VMs
+resource "google_compute_firewall" "allow_ssh_all" {
+  name    = format("allow-ssh-all-%s", random_id.network.hex)
+  network = google_compute_network.observa_vpc.id
+
+  allow {
+    protocol = "tcp"
+    ports    = ["22"]
+  }
+
+  source_ranges = ["0.0.0.0/0"]
+  # Pas de target_tags = autorise SSH sur toutes les VMs
+}
 
 # Route par défaut supprimée - chaque VM aura sa propre IP publique
 
