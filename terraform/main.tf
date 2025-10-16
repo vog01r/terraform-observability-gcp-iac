@@ -3,8 +3,6 @@ resource "google_compute_network" "observability_vpc" {
   name                    = "observability-vpc"
   auto_create_subnetworks = false
   description             = "VPC for observability TP"
-  
-  labels = var.labels
 }
 
 # Subnet
@@ -13,8 +11,6 @@ resource "google_compute_subnetwork" "observability_subnet" {
   ip_cidr_range = var.network_cidr
   region        = var.region
   network       = google_compute_network.observability_vpc.id
-  
-  labels = var.labels
 }
 
 # Firewall Rules
@@ -29,8 +25,6 @@ resource "google_compute_firewall" "allow_ssh" {
 
   source_ranges = ["0.0.0.0/0"] # TODO: Restreindre aux IPs admin
   target_tags   = ["ssh"]
-  
-  labels = var.labels
 }
 
 resource "google_compute_firewall" "allow_http" {
@@ -44,8 +38,6 @@ resource "google_compute_firewall" "allow_http" {
 
   source_ranges = ["0.0.0.0/0"]
   target_tags   = ["http"]
-  
-  labels = var.labels
 }
 
 resource "google_compute_firewall" "allow_grafana" {
@@ -59,8 +51,6 @@ resource "google_compute_firewall" "allow_grafana" {
 
   source_ranges = ["0.0.0.0/0"]
   target_tags   = ["grafana"]
-  
-  labels = var.labels
 }
 
 resource "google_compute_firewall" "allow_zabbix_agent" {
@@ -74,8 +64,6 @@ resource "google_compute_firewall" "allow_zabbix_agent" {
 
   source_ranges = [var.network_cidr]
   target_tags   = ["zabbix-agent"]
-  
-  labels = var.labels
 }
 
 resource "google_compute_firewall" "allow_zabbix_server" {
@@ -89,8 +77,6 @@ resource "google_compute_firewall" "allow_zabbix_server" {
 
   source_ranges = [var.network_cidr]
   target_tags   = ["zabbix-server"]
-  
-  labels = var.labels
 }
 
 # SSH Key
