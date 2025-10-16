@@ -1,0 +1,59 @@
+# Zabbix Server Configuration
+LogFile=/var/log/zabbix/zabbix_server.log
+LogFileSize=0
+PidFile=/var/run/zabbix/zabbix_server.pid
+SocketDir=/var/run/zabbix
+
+DBHost=localhost
+DBName={{ zabbix_db_name }}
+DBUser={{ zabbix_db_user }}
+DBPassword={{ zabbix_db_password }}
+DBPort=3306
+
+ListenPort={{ zabbix_server_port }}
+ListenIP=0.0.0.0
+
+StartPollers=5
+StartPollersUnreachable=1
+StartTrappers=5
+StartPingers=1
+StartDiscoverers=1
+StartHTTPPollers=1
+StartTimers=1
+StartEscalators=1
+
+JavaGateway=127.0.0.1
+JavaGatewayPort=10052
+StartJavaPollers=0
+
+SNMPTrapperFile=/var/log/snmp/snmptrap.log
+StartSNMPTrapper=0
+
+ListenIP=0.0.0.0
+HousekeepingFrequency=1
+MaxHousekeepingDelay=1
+CacheSize=8M
+CacheUpdateFrequency=60
+StartDBSyncers=4
+HistoryCacheSize=16M
+HistoryIndexCacheSize=4M
+
+TrendCacheSize=4M
+ValueCacheSize=8M
+
+Timeout=4
+TrapperTimeout=300
+UnreachablePeriod=45
+UnavailableDelay=60
+UnreachableDelay=15
+
+AlertScriptsPath=/usr/lib/zabbix/alertscripts
+ExternalScripts=/usr/lib/zabbix/externalscripts
+
+LogSlowQueries=3000
+TmpDir=/tmp
+
+AllowRoot=0
+User=zabbix
+
+Include=/usr/local/etc/zabbix_server.conf.d/*.conf

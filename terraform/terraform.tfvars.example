@@ -1,0 +1,30 @@
+# GCP Configuration
+project_id = "PROJECT_ID"
+region     = "REGION"
+zone       = "ZONE"
+
+# SSH Configuration
+ssh_user             = "ubuntu"
+ssh_public_key_path  = "~/.ssh/id_rsa.pub"
+
+# VM Configuration
+app_machine_type     = "e2-micro"
+zabbix_machine_type  = "e2-standard-2"
+grafana_machine_type = "e2-micro"
+
+# Network Configuration
+network_cidr = "10.42.0.0/24"
+
+# Disk Configuration
+boot_disk_size = 20
+
+# Image Configuration
+image_family  = "ubuntu-2204-lts"
+image_project = "ubuntu-os-cloud"
+
+# Labels
+labels = {
+  project     = "observability-tp"
+  environment = "dev"
+  managed_by  = "terraform"
+}

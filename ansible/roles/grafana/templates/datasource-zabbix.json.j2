@@ -1,0 +1,21 @@
+apiVersion: 1
+
+datasources:
+  - name: Zabbix
+    type: alexanderzobnin-zabbix-datasource
+    access: proxy
+    url: {{ zabbix_api_url }}
+    basicAuth: false
+    isDefault: true
+    jsonData:
+      username: {{ zabbix_username }}
+      password: {{ zabbix_password }}
+      dbConnectionEnable: false
+      dbConnectionDatasourceId: 1
+      dbConnectionDatasourceName: ''
+      dbConnectionRetentionPolicy: ''
+      cacheTTL: '5m'
+      disableDataAlignment: false
+      enableDirectDBConnection: false
+      queryTimeout: '30s'
+      timeout: '30s'

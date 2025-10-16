@@ -1,0 +1,11 @@
+[app]
+app-linux ansible_host=${app_ip} ansible_user=${ssh_user}
+
+[zabbix]
+zabbix-linux ansible_host=${zbx_ip} ansible_user=${ssh_user}
+
+[grafana]
+grafana-linux ansible_host=${graf_ip} ansible_user=${ssh_user}
+
+[all:vars]
+ansible_python_interpreter=/usr/bin/python3

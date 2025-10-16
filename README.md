@@ -1,491 +1,269 @@
-# Observabilité Infrastructure - Terraform
+# 🚀 TP Observabilité - Infrastructure GCP avec Terraform et Ansible
 
-[![Terraform](https://img.shields.io/badge/terraform-%235835CC.svg?style=for-the-badge&logo=terraform&logoColor=white)](https://terraform.io)
-[![Google Cloud](https://img.shields.io/badge/GoogleCloud-%234285F4.svg?style=for-the-badge&logo=google-cloud&logoColor=white)](https://cloud.google.com)
-[![Kubernetes](https://img.shields.io/badge/kubernetes-%23326CE5.svg?style=for-the-badge&logo=kubernetes&logoColor=white)](https://kubernetes.io)
-[![Ansible](https://img.shields.io/badge/ansible-%231A1918.svg?style=for-the-badge&logo=ansible&logoColor=white)](https://www.ansible.com)
+[![Terraform](https://img.shields.io/badge/Terraform-1.0+-blue.svg)](https://terraform.io/)
+[![Ansible](https://img.shields.io/badge/Ansible-2.9+-red.svg)](https://ansible.com/)
+[![GCP](https://img.shields.io/badge/GCP-Google%20Cloud-orange.svg)](https://cloud.google.com/)
 
-## 📋 Vue d'ensemble
+Un projet complet d'observabilité déployant 3 VMs sur GCP avec monitoring Zabbix et visualisation Grafana, entièrement automatisé avec Terraform et Ansible.
 
-Ce projet Terraform déploie une infrastructure d'observabilité complète sur Google Cloud Platform avec 4 serveurs Ubuntu configurés pour Kubernetes, monitoring, et applications. L'infrastructure inclut un réseau VPC privé avec un bastion host, des règles de pare-feu sécurisées, et une configuration NAT pour l'accès Internet depuis les serveurs privés.
+## 🎯 Vue d'Ensemble
+
+Ce projet déploie une infrastructure d'observabilité complète comprenant :
+
+- **VM App** : Application Flask avec métriques personnalisées
+- **VM Zabbix** : Serveur de monitoring avec base de données MariaDB
+- **VM Grafana** : Interface de visualisation avec plugin Zabbix
+- **VPC GCP** : Réseau privé avec règles de firewall sécurisées
 
 ## 🏗️ Architecture
 
-```mermaid
-flowchart TB
-    subgraph "Google Cloud Platform"
-        subgraph "VPC Network"
-            VPC["vpc-{id}"]
-            SUBNET["subnet-{id}<br/>192.168.10.0/24"]
-            
-            subgraph "Firewall Rules"
-                SSH["SSH: 22"]
-                WEB["HTTP/HTTPS: 80/443"]
-                INT["Internal: All"]
-                NAT["NAT Egress"]
-            end
-            
-            subgraph "Compute Instances"
-                BASTION["Bastion/Gateway<br/>192.168.10.2<br/>Public IP: 34.172.22.250"]
-                K8S["Kubernetes Server<br/>192.168.10.11<br/>Private IP"]
-                OBS["Observability Server<br/>192.168.10.12<br/>Private IP"]
-                APP["Application Server<br/>192.168.10.13<br/>Private IP"]
-            end
-        end
-        
-        subgraph "Network Configuration"
-            NAT_ROUTE["NAT Route<br/>0.0.0.0/0 → Bastion"]
-            EXT_IP["External IP<br/>34.172.22.250"]
-        end
-    end
-    
-    subgraph "Services Configurés"
-        K8S_SVC["Kubernetes Cluster"]
-        MONITORING["Prometheus/Grafana"]
-        LOGGING["ELK Stack"]
-        APPS["Applications"]
-    end
-    
-    VPC --> SUBNET
-    SUBNET --> BASTION
-    SUBNET --> K8S
-    SUBNET --> OBS
-    SUBNET --> APP
-    
-    SSH --> BASTION
-    WEB --> BASTION
-    INT --> BASTION
-    INT --> K8S
-    INT --> OBS
-    INT --> APP
-    NAT --> BASTION
-    
-    BASTION --> NAT_ROUTE
-    NAT_ROUTE --> EXT_IP
-    
-    K8S --> K8S_SVC
-    OBS --> MONITORING
-    OBS --> LOGGING
-    APP --> APPS
+```
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│   VM App        │    │   VM Zabbix     │    │   VM Grafana    │
+│   (Flask)       │    │   (Server)      │    │   (Dashboard)   │
+│                 │    │                 │    │                 │
+│  - Flask App    │    │  - Zabbix       │    │  - Grafana      │
+│  - Zabbix Agent │◄──►│  - MariaDB      │◄──►│  - Zabbix Plugin│
+│  - Port 5000    │    │  - Port 10051   │    │  - Port 3000    │
+└─────────────────┘    └─────────────────┘    └─────────────────┘
+         │                       │                       │
+         └───────────────────────┼───────────────────────┘
+                                 │
+                    ┌─────────────────┐
+                    │   VPC GCP       │
+                    │   (10.42.0.0/24)│
+                    └─────────────────┘
 ```
 
-## 🎓 Guide pour débutants
+## 🚀 Démarrage Rapide
 
-### 📋 Préparation de l'environnement GCP
+### Prérequis
 
-#### 1. Créer un compte Google Cloud Platform
+- **GCP Project** avec facturation activée
+- **Service Account** avec permissions Compute Admin
+- **Clé SSH** générée
+- **Logiciels** : Terraform, Ansible, gcloud CLI
 
-1. **Aller sur** [Google Cloud Console](https://console.cloud.google.com/)
-2. **Se connecter** avec n'importe quelle adresse email Google
-3. **Accepter** les conditions d'utilisation
-4. **Créer un nouveau projet** ou utiliser le projet par défaut
+### Installation (5 minutes)
 
-#### 2. Activer les crédits gratuits
-
-1. **Aller dans** "Facturation" dans la console GCP
-2. **Activer la facturation** (nécessaire même pour les crédits gratuits)
-3. **Utiliser les crédits gratuits** : Google offre $300 de crédits pour 90 jours
-4. **Vérifier les quotas** : Les crédits gratuits couvrent largement ce projet
-
-#### 3. Créer un compte de service
-
-1. **Aller dans** "IAM et administration" > "Comptes de service"
-2. **Créer un compte de service** :
-   - Nom : `terraform-admin`
-   - Description : `Compte de service pour Terraform`
-3. **Attribuer les rôles** :
-   - `Propriétaire` (ou `Éditeur` + `Compute Admin`)
-   - `Service Account User`
-4. **Créer une clé JSON** :
-   - Cliquer sur le compte de service
-   - Onglet "Clés" > "Ajouter une clé" > "Créer une nouvelle clé"
-   - Type : JSON
-   - **Télécharger** le fichier JSON
-
-#### 4. Configurer l'authentification
-
-1. **Renommer** le fichier téléchargé en `key.json`
-2. **Placer** le fichier à la racine du projet :
-   ```
-   observability/
-   ├── key.json          ← Votre fichier de clés
-   ├── README.md
-   ├── terraform/
-   └── ansible/
-   ```
-
-### 💻 Préparation de l'environnement local
-
-#### Option 1 : Machine Linux (Recommandée)
-
-1. **Installer une VM Linux** :
-   - Ubuntu 20.04+ ou CentOS 8+
-   - 2 vCPU, 4GB RAM minimum
-   - Accès SSH activé
-
-2. **Se connecter en SSH** :
-   ```bash
-   ssh utilisateur@ip-de-votre-vm
-   ```
-
-3. **Installer Terraform** :
-   ```bash
-   # Ubuntu/Debian
-   wget -O- https://apt.releases.hashicorp.com/gpg | gpg --dearmor | sudo tee /usr/share/keyrings/hashicorp-archive-keyring.gpg
-   echo "deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/hashicorp.list
-   sudo apt update && sudo apt install terraform
-   
-   # Vérifier l'installation
-   terraform version
-   ```
-
-4. **Installer Ansible** :
-   ```bash
-   # Ubuntu/Debian
-   sudo apt update
-   sudo apt install ansible
-   
-   # Vérifier l'installation
-   ansible --version
-   ```
-
-#### Option 2 : Windows avec WSL2
-
-1. **Installer WSL2** :
-   ```powershell
-   wsl --install
-   ```
-
-2. **Installer Terraform et Ansible dans WSL** :
-   ```bash
-   # Dans WSL Ubuntu
-   sudo apt update
-   sudo apt install terraform ansible
-   ```
-
-#### Option 3 : Cloud Shell (Google Cloud)
-
-1. **Ouvrir Cloud Shell** dans la console GCP
-2. **Terraform est pré-installé** dans Cloud Shell
-3. **Installer Ansible** :
-   ```bash
-   sudo apt update
-   sudo apt install ansible
-   ```
-4. **Uploader** le fichier `key.json` via l'interface
-
-### 🚀 Déploiement du projet
-
-#### 1. Cloner le projet
-
+1. **Cloner le projet**
 ```bash
-# Cloner le repository
-git clone <repository-url>
+git clone <REPO_URL>
 cd observability
-
-# Vérifier la structure
-ls -la
-# Vous devriez voir : key.json, README.md, terraform/, ansible/
 ```
 
-#### 2. Configurer Terraform
+2. **Configurer l'environnement GCP**
+```bash
+export GOOGLE_APPLICATION_CREDENTIALS="/path/to/your/service-account-key.json"
+gcloud auth login
+gcloud config set project YOUR_PROJECT_ID
+```
+
+3. **Configurer les variables**
+```bash
+cp terraform/terraform.tfvars.example terraform/terraform.tfvars
+# Éditer terraform.tfvars avec vos valeurs
+```
+
+4. **Déployer l'infrastructure complète**
+```bash
+make all
+```
+
+### Accès aux Services
+
+Une fois le déploiement terminé :
+
+- **Application Flask** : http://APP_IP:5000
+- **Zabbix** : http://ZABBIX_IP/zabbix (Admin/zabbix)
+- **Grafana** : http://GRAFANA_IP:3000 (admin/admin)
+
+## 📁 Structure du Projet
+
+```
+.
+├── README.md                    # Ce fichier
+├── TP.md                       # Guide détaillé du TP
+├── Makefile                    # Automatisation des tâches
+├── .gitignore                  # Fichiers à ignorer
+├── terraform/                  # Configuration Terraform
+│   ├── main.tf                # Ressources principales
+│   ├── outputs.tf             # Variables de sortie
+│   ├── providers.tf           # Configuration des providers
+│   ├── variables.tf           # Variables d'entrée
+│   ├── terraform.tfvars.example # Exemple de configuration
+│   └── templates/
+│       └── inventory.ini.tmpl # Template inventaire Ansible
+├── ansible/                    # Configuration Ansible
+│   ├── ansible.cfg            # Configuration Ansible
+│   ├── site.yml               # Playbook principal
+│   ├── inventory/
+│   │   ├── inventory.ini      # Inventaire généré par Terraform
+│   │   └── group_vars/        # Variables par groupe
+│   └── roles/                 # Rôles Ansible
+│       ├── common/            # Configuration commune
+│       ├── app/               # Application Flask
+│       ├── zabbix_server/     # Serveur Zabbix
+│       └── grafana/           # Grafana
+└── scripts/                   # Scripts utilitaires
+    ├── check-ssh.sh          # Vérification SSH
+    └── export-tf-outputs.sh  # Export des outputs
+```
+
+## 🛠️ Commandes Disponibles
+
+### Makefile
 
 ```bash
-# Aller dans le dossier terraform
-cd terraform
-
-# Initialiser Terraform
-terraform init
-
-# Vérifier la configuration
-terraform validate
+make help        # Afficher l'aide
+make init        # Initialiser Terraform
+make plan        # Planifier le déploiement
+make apply       # Déployer l'infrastructure
+make wait-ssh    # Attendre la connectivité SSH
+make provision   # Configurer avec Ansible
+make all         # Déploiement complet
+make destroy     # Détruire l'infrastructure
+make outputs     # Afficher les outputs
+make check       # Vérifier la connectivité SSH
+make clean       # Nettoyer les fichiers temporaires
 ```
 
-#### 3. Planifier le déploiement
+### Commandes Terraform
 
 ```bash
-# Voir ce qui va être créé
-terraform plan
-
-# Le plan doit montrer :
-# - 1 VPC network
-# - 1 subnet
-# - 4 firewall rules
-# - 1 external IP
-# - 4 Ubuntu instances (bastion, k8s, obs, app)
-# - 1 NAT route
+terraform -chdir=terraform init
+terraform -chdir=terraform plan
+terraform -chdir=terraform apply
+terraform -chdir=terraform destroy
+terraform -chdir=terraform output
 ```
 
-#### 4. Déployer l'infrastructure
+### Commandes Ansible
 
 ```bash
-# Déployer (confirmer avec 'yes')
-terraform apply
-
-# Ou déploiement automatique
-terraform apply -auto-approve
+ansible-playbook -i ansible/inventory/inventory.ini ansible/site.yml
+ansible all -i ansible/inventory/inventory.ini -m ping
 ```
 
-#### 5. Récupérer les informations de connexion
+## 🔧 Configuration
 
-```bash
-# Voir toutes les informations
-terraform output
+### Variables Terraform
 
-# Informations de connexion SSH
-echo "Bastion IP: $(terraform output -raw bastion_public_ip)"
-echo "K8s IP: $(terraform output -raw k8s_private_ip)"
-echo "Obs IP: $(terraform output -raw obs_private_ip)"
-echo "App IP: $(terraform output -raw app_private_ip)"
-```
+| Variable | Description | Défaut |
+|----------|-------------|---------|
+| `project_id` | ID du projet GCP | - |
+| `region` | Région GCP | `us-central1` |
+| `zone` | Zone GCP | `us-central1-a` |
+| `network_cidr` | CIDR du réseau | `10.42.0.0/24` |
+| `ssh_user` | Utilisateur SSH | `ubuntu` |
+| `ssh_public_key_path` | Chemin clé SSH | `~/.ssh/id_rsa.pub` |
 
-### 🔗 Connexion aux serveurs
+### Variables Ansible
 
-#### Connexion SSH via Bastion
+Les variables sont définies dans `ansible/inventory/group_vars/` :
 
-```bash
-# Récupérer l'IP du bastion
-BASTION_IP=$(terraform output -raw bastion_public_ip)
-echo "IP du bastion : $BASTION_IP"
-
-# Se connecter au bastion
-ssh ubuntu@$BASTION_IP
-
-# Depuis le bastion, se connecter aux autres serveurs
-# K8s server
-ssh ubuntu@192.168.10.11
-
-# Observability server
-ssh ubuntu@192.168.10.12
-
-# Application server
-ssh ubuntu@192.168.10.13
-```
-
-#### Connexion directe avec ProxyCommand
-
-```bash
-# Connexion directe au serveur K8s via bastion
-ssh -o ProxyCommand="ssh -W %h:%p ubuntu@$BASTION_IP" ubuntu@192.168.10.11
-
-# Connexion directe au serveur Observability via bastion
-ssh -o ProxyCommand="ssh -W %h:%p ubuntu@$BASTION_IP" ubuntu@192.168.10.12
-
-# Connexion directe au serveur Application via bastion
-ssh -o ProxyCommand="ssh -W %h:%p ubuntu@$BASTION_IP" ubuntu@192.168.10.13
-```
-
-### 🧹 Nettoyage (Important !)
-
-```bash
-# Détruire l'infrastructure pour éviter les coûts
-terraform destroy
-
-# Confirmer avec 'yes'
-# Cela supprime tous les serveurs et libère les ressources
-```
-
-### 🚨 Dépannage rapide
-
-#### Erreur : "Fichier key.json non trouvé"
-```bash
-# Vérifier que le fichier existe
-ls -la key.json
-
-# Le fichier doit être à la racine du projet
-# observability/key.json
-```
-
-#### Erreur : "Quota CPUS_ALL_REGIONS dépassé"
-```bash
-# Vérifier les quotas dans la console GCP
-# IAM et administration > Quotas
-# Rechercher "CPUS_ALL_REGIONS" et vérifier l'utilisation
-
-# Solution : Le projet utilise déjà e2-micro (très économique)
-# Si le problème persiste, il y a d'autres instances dans votre projet
-```
-
-#### Erreur : "API non activée"
-```bash
-# Activer l'API Compute Engine
-# Console GCP > APIs et services > Bibliothèque
-# Rechercher "Compute Engine API" et l'activer
-```
-
-#### Erreur : "Permission refusée"
-```bash
-# Vérifier les rôles du compte de service
-# Console GCP > IAM et administration > Comptes de service
-# Le compte doit avoir le rôle "Propriétaire" ou "Éditeur"
-```
-
-#### Les serveurs ne répondent pas
-```bash
-# Attendre 2-3 minutes après le déploiement
-# Les instances e2-micro démarrent rapidement
-
-# Vérifier les logs de démarrage
-gcloud compute instances get-serial-port-output std-garfish-gw --zone=us-central1-a
-```
-
-## 🚀 Démarrage rapide (Utilisateurs expérimentés)
-
-### Pré-requis
-
-- [Terraform](https://terraform.io/downloads) >= 1.0
-- [Google Cloud CLI](https://cloud.google.com/sdk/docs/install)
-- [Ansible](https://docs.ansible.com/ansible/latest/installation_guide/index.html) >= 2.9
-- Fichier de clés de service GCP (`key.json`)
-
-### Installation
-
-```bash
-# 1. Cloner le projet
-git clone <repository-url>
-cd observability
-
-# 2. Initialiser Terraform
-cd terraform
-terraform init
-
-# 3. Planifier le déploiement
-terraform plan
-
-# 4. Déployer l'infrastructure
-terraform apply
-```
-
-### Connexion aux serveurs
-
-```bash
-# Récupérer les informations de connexion
-BASTION_IP=$(terraform output -raw bastion_public_ip)
-
-# Connexion SSH via bastion
-ssh ubuntu@$BASTION_IP
-
-# Connexion directe avec proxy
-ssh -o ProxyCommand="ssh -W %h:%p ubuntu@$BASTION_IP" ubuntu@192.168.10.11
-```
-
-## 📊 Caractéristiques
-
-| Aspect | Détail |
-|--------|--------|
-| **Serveurs** | 4x Ubuntu 22.04 LTS |
-| **Région** | us-central1 |
-| **Zone** | us-central1-a |
-| **Machine Type** | e2-micro (vCPUs partagés, très économique) |
-| **Stockage** | 30GB SSD par serveur |
-| **Réseau** | VPC privé avec bastion host |
-| **Services** | SSH, HTTP/HTTPS, NAT |
-
-## 🔧 Services configurés
-
-- **✅ Bastion Host** - Point d'entrée sécurisé avec IP publique
-- **✅ NAT Gateway** - Accès Internet pour les serveurs privés
-- **✅ Kubernetes Server** - Cluster K8s pour orchestration
-- **✅ Observability Server** - Monitoring et logging
-- **✅ Application Server** - Déploiement d'applications
-- **✅ SSH Access** - Accès sécurisé via bastion
-
-## 📚 Documentation
-
-- [Guide de déploiement](docs/deployment.md)
-- [Architecture détaillée](docs/architecture.md)
-- [Sécurité et accès](docs/security.md)
-- [Dépannage](docs/troubleshooting.md)
-- [Configuration Ansible](ansible/README.md)
+- **all.yml** : Configuration commune
+- **app.yml** : Configuration application Flask
+- **zabbix.yml** : Configuration Zabbix
+- **grafana.yml** : Configuration Grafana
 
 ## 🔒 Sécurité
 
-### Accès configuré
-- **Utilisateur** : `ubuntu`
-- **Authentification** : Clés SSH (pas de mots de passe)
-- **Ports ouverts** : 22 (SSH), 80/443 (HTTP/HTTPS)
-- **Accès privé** : Communication interne uniquement
+### Firewall Rules
 
-### ⚠️ Recommandations de sécurité
-- Utiliser des clés SSH au lieu des mots de passe
-- Restreindre les sources IP dans les règles de pare-feu
-- Activer les logs de pare-feu
-- Configurer un VPN pour l'accès au bastion
+- **SSH (22)** : Accès depuis 0.0.0.0/0 (⚠️ TODO: restreindre)
+- **HTTP/HTTPS (80/443)** : Accès depuis 0.0.0.0/0
+- **Grafana (3000)** : Accès depuis 0.0.0.0/0
+- **Zabbix Agent (10050)** : Accès intra-VPC uniquement
+- **Zabbix Server (10051)** : Accès intra-VPC uniquement
 
-## 💰 Coûts et crédits gratuits
+### Recommandations
 
-### 🆓 Crédits gratuits Google Cloud
+1. **Restreindre SSH** aux IPs d'administration
+2. **Changer les mots de passe** par défaut
+3. **Activer HTTPS** pour les interfaces web
+4. **Configurer des alertes** de sécurité
 
-**Google Cloud offre $300 de crédits gratuits pour 90 jours** - largement suffisant pour ce projet !
+## 📊 Monitoring
 
-### 💵 Coûts estimés (pour information)
+### Métriques Collectées
 
-| Ressource | Coût mensuel estimé | Couvert par crédits gratuits |
-|-----------|-------------------|------------------------------|
-| 4x e2-micro | ~$20-30 | ✅ Oui |
-| 4x Disques SSD 30GB | ~$15-25 | ✅ Oui |
-| 1x IP publique | ~$5-10 | ✅ Oui |
-| **Total** | **~$40-65/mois** | ✅ **Entièrement couvert** |
+- **Flask Uptime** : Temps de fonctionnement
+- **Flask Errors** : Nombre d'erreurs
+- **Flask Requests** : Nombre total de requêtes
+- **Flask Error Rate** : Taux d'erreur en pourcentage
 
-### ⏱️ Coûts par heure (pour les tests)
+### Dashboards
 
-| Ressource | Coût par heure | Pour 2h de test |
-|-----------|----------------|-----------------|
-| 4x e2-micro | ~$0.05 | ~$0.10 |
-| 4x Disques SSD 30GB | ~$0.02 | ~$0.04 |
-| 1x IP publique | ~$0.01 | ~$0.02 |
-| **Total pour 2h** | **~$0.16** | **Très économique !** |
+- **Zabbix** : Monitoring système et application
+- **Grafana** : Visualisation avancée avec plugin Zabbix
 
-### 💡 Conseils pour économiser
+## 🧪 Tests
 
-1. **Détruire après utilisation** : `terraform destroy` pour arrêter la facturation
-2. **Utiliser les crédits gratuits** : $300 = plusieurs mois d'utilisation
-3. **Tester rapidement** : Le projet se déploie en 2-3 minutes
-4. **Surveiller les coûts** : Console GCP > Facturation
-
-## 🛠️ Commandes utiles
+### Test de l'Application
 
 ```bash
-# Voir l'état des ressources
-terraform show
-
-# Lister les outputs
-terraform output
-
-# Détruire l'infrastructure
-terraform destroy
-
-# Voir le graph des dépendances
-terraform graph | dot -Tpng > dependencies.png
-
-# Vérifier la connectivité
-ssh ubuntu@$(terraform output -raw bastion_public_ip)
+# Test des endpoints
+curl http://APP_IP:5000/          # Page d'accueil
+curl http://APP_IP:5000/health    # Santé de l'application
+curl http://APP_IP:5000/stats     # Métriques
 ```
 
-## 📝 Variables configurables
+### Test de Charge
 
-| Variable | Défaut | Description |
-|----------|--------|-------------|
-| `machine_type` | `e2-micro` | Type de machine GCP (très économique) |
-| `boot_disk_gb` | `30` | Taille du disque en GB |
-| `image_family` | `ubuntu-2204-lts` | Famille d'image Ubuntu |
-| `image_project` | `ubuntu-os-cloud` | Projet d'image Ubuntu |
-
-## 🏗️ Structure du projet
-
+```bash
+# Génération de charge simple
+for i in {1..100}; do
+  curl http://APP_IP:5000/health &
+done
+wait
 ```
-observability/
-├── key.json                    # Clés de service GCP
-├── README.md                   # Cette documentation
-├── terraform/                  # Infrastructure Terraform
-│   ├── main.tf                # Configuration principale
-│   ├── variables.tf           # Variables configurables
-│   └── outputs.tf             # Sorties du déploiement
-└── ansible/                   # Configuration Ansible
-    ├── inventory/             # Inventaire des serveurs
-    ├── templates/             # Modèles de configuration
-    └── vars/                  # Variables Ansible
+
+## 🔍 Dépannage
+
+### Problèmes Courants
+
+#### 1. Erreur de Quota GCP
 ```
+Error: Quota 'CPUS_ALL_REGIONS' exceeded
+```
+**Solution** : Réduire les types de machines dans `terraform.tfvars`
+
+#### 2. Échec de Connexion SSH
+```
+ssh: connect to host IP port 22: Connection timed out
+```
+**Solution** : Vérifier les firewall rules et attendre le démarrage
+
+#### 3. Playbook Ansible Échoue
+```
+TASK [zabbix_server : Import Zabbix database schema] FAILED
+```
+**Solution** : Vérifier la connectivité réseau et les permissions
+
+### Logs et Debug
+
+```bash
+# Logs Terraform
+terraform -chdir=terraform apply -auto-approve 2>&1 | tee terraform.log
+
+# Logs Ansible
+ansible-playbook -i ansible/inventory/inventory.ini ansible/site.yml -vvv
+
+# Logs GCP
+gcloud logging read "resource.type=gce_instance"
+```
+
+## 💰 Coûts Estimés
+
+| Ressource | Type | Coût/heure | Coût/jour |
+|-----------|------|------------|-----------|
+| VM App | e2-micro | ~$0.01 | ~$0.24 |
+| VM Zabbix | e2-standard-2 | ~$0.07 | ~$1.68 |
+| VM Grafana | e2-micro | ~$0.01 | ~$0.24 |
+| **Total** | | **~$0.09** | **~$2.16** |
+
+*Coûts approximatifs pour la région us-central1*
 
 ## 🤝 Contribution
 
@@ -497,17 +275,26 @@ observability/
 
 ## 📄 Licence
 
-Ce projet est sous licence MIT. Voir le fichier [LICENSE](LICENSE) pour plus de détails.
+Ce projet est sous licence MIT. Voir le fichier `LICENSE` pour plus de détails.
 
 ## 📞 Support
 
-Pour toute question ou problème :
-- Ouvrir une [issue](https://github.com/your-repo/issues)
-- Consulter la [documentation](docs/)
-- Vérifier le [dépannage](docs/troubleshooting.md)
+- **Issues** : [GitHub Issues](https://github.com/your-repo/issues)
+- **Documentation** : [Wiki](https://github.com/your-repo/wiki)
+- **Email** : support@example.com
+
+## 🙏 Remerciements
+
+- [Terraform](https://terraform.io/) pour l'Infrastructure as Code
+- [Ansible](https://ansible.com/) pour l'automatisation
+- [Zabbix](https://zabbix.com/) pour le monitoring
+- [Grafana](https://grafana.com/) pour la visualisation
+- [Google Cloud Platform](https://cloud.google.com/) pour l'infrastructure
 
 ---
 
-**⚠️ Note importante** : Cette infrastructure est configurée pour l'apprentissage et les tests. Pour la production, consultez les recommandations de sécurité dans [docs/security.md](docs/security.md).
+**⚠️ Important** : N'oubliez pas de détruire l'infrastructure après vos tests pour éviter des coûts inutiles !
 
-**🎯 Objectif pédagogique** : Ce projet permet d'apprendre l'infrastructure as code avec Terraform, la gestion de réseaux privés, et l'observabilité dans un environnement cloud sécurisé.
+```bash
+make destroy
+```

@@ -1,0 +1,5 @@
+# Custom Zabbix parameters for Flask app monitoring
+UserParameter=flask.uptime,curl -s http://localhost:{{ app_port }}/stats | jq -r '.uptime_seconds'
+UserParameter=flask.errors,curl -s http://localhost:{{ app_port }}/stats | jq -r '.error_count'
+UserParameter=flask.requests,curl -s http://localhost:{{ app_port }}/stats | jq -r '.total_requests'
+UserParameter=flask.error_rate,curl -s http://localhost:{{ app_port }}/stats | jq -r '.error_rate'

@@ -1,39 +1,85 @@
-# Fichiers de clés et secrets
+# Terraform
+*.tfstate
+*.tfstate.*
+*.tfvars
+!*.tfvars.example
+.terraform/
+.terraform.lock.hcl
+terraform.tfplan
+terraform.tfplan.*
+
+# Ansible
+ansible/inventory/inventory.ini
+*.retry
+.ansible/
+
+# GCP
 key.json
 *.json
 *.key
 *.pem
 *.p12
 
-# Fichiers Terraform
-*.tfstate
-*.tfstate.*
-*.tfvars
-*.tfvars.json
-.terraform/
-.terraform.lock.hcl
-crash.log
-crash.*.log
-
-# Fichiers de logs
+# Logs
 *.log
+logs/
+terraform.log
+ansible.log
 
-# Fichiers temporaires
+# Temporary files
 *.tmp
 *.temp
 .DS_Store
 Thumbs.db
 
-# Fichiers d'environnement
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Backup files
+*.backup
+*.bak
+*.orig
+
+# OS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# SSH
+known_hosts
+known_hosts.old
+
+# Environment variables
 .env
 .env.local
 .env.*.local
 
-# Fichiers de cache
+# Cache
 .cache/
 *.cache
-
-# Fichiers de sauvegarde
-*.bak
-*.backup
-*~

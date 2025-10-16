@@ -1,0 +1,62 @@
+#!/usr/bin/env python3
+import os
+import time
+import random
+import json
+from datetime import datetime
+from flask import Flask, jsonify
+
+app = Flask(__name__)
+
+# Global variables for stats
+start_time = time.time()
+error_count = 0
+request_count = 0
+
+@app.route('/')
+def home():
+    global request_count
+    request_count += 1
+    return jsonify({
+        'message': 'Observability TP - Flask App',
+        'status': 'running',
+        'timestamp': datetime.now().isoformat()
+    })
+
+@app.route('/health')
+def health():
+    global request_count, error_count
+    request_count += 1
+    
+    # Simulate 10% error rate
+    if random.random() < 0.1:
+        error_count += 1
+        return jsonify({
+            'status': 'error',
+            'message': 'Health check failed',
+            'timestamp': datetime.now().isoformat()
+        }), 500
+    
+    return jsonify({
+        'status': 'healthy',
+        'message': 'Health check passed',
+        'timestamp': datetime.now().isoformat()
+    })
+
+@app.route('/stats')
+def stats():
+    global request_count, error_count, start_time
+    request_count += 1
+    
+    uptime = time.time() - start_time
+    
+    return jsonify({
+        'uptime_seconds': int(uptime),
+        'total_requests': request_count,
+        'error_count': error_count,
+        'error_rate': round((error_count / request_count) * 100, 2) if request_count > 0 else 0,
+        'timestamp': datetime.now().isoformat()
+    })
+
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=5000, debug=False)

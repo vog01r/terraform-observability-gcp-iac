@@ -1,0 +1,79 @@
+---
+- name: Install Python3 and pip
+  apt:
+    name:
+      - python3
+      - python3-pip
+      - python3-venv
+    state: present
+
+- name: Install Flask
+  pip:
+    name: flask
+    state: present
+
+- name: Create app directory
+  file:
+    path: "{{ app_install_path }}"
+    state: directory
+    mode: '0755'
+
+- name: Deploy Flask application
+  template:
+    src: app.py.j2
+    dest: "{{ app_install_path }}/app.py"
+    mode: '0755'
+
+- name: Create systemd service for Flask app
+  template:
+    src: flask-app.service.j2
+    dest: /etc/systemd/system/{{ app_service_name }}.service
+    mode: '0644'
+  notify: restart flask-app
+
+- name: Enable and start Flask app service
+  systemd:
+    name: "{{ app_service_name }}"
+    enabled: yes
+    state: started
+    daemon_reload: yes
+
+- name: Allow app port through firewall
+  ufw:
+    rule: allow
+    port: "{{ app_port }}"
+    proto: tcp
+  when: firewall_enabled | default(true)
+
+- name: Install Zabbix Agent
+  apt:
+    name: zabbix-agent
+    state: present
+
+- name: Configure Zabbix Agent
+  template:
+    src: zabbix_agentd.conf.j2
+    dest: /etc/zabbix/zabbix_agentd.conf
+    mode: '0644'
+  notify: restart zabbix-agent
+
+- name: Add custom Zabbix parameters
+  template:
+    src: userparameter_flask.conf.j2
+    dest: /etc/zabbix/zabbix_agentd.d/userparameter_flask.conf
+    mode: '0644'
+  notify: restart zabbix-agent
+
+- name: Enable and start Zabbix Agent
+  systemd:
+    name: zabbix-agent
+    enabled: yes
+    state: started
+    daemon_reload: yes
+
+- name: Allow Zabbix Agent port through firewall
+  ufw:
+    rule: allow
+    port: "{{ zabbix_agent_port }}"
+    proto: tcp
+  when: firewall_enabled | default(true)

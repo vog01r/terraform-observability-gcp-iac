@@ -1,0 +1,90 @@
+---
+- name: Add Grafana APT key
+  apt_key:
+    url: https://apt.grafana.com/gpg.key
+    state: present
+
+- name: Add Grafana APT repository
+  apt_repository:
+    repo: "deb https://apt.grafana.com stable main"
+    state: present
+    update_cache: yes
+
+- name: Install Grafana
+  apt:
+    name: grafana
+    state: present
+
+- name: Start and enable Grafana
+  systemd:
+    name: grafana-server
+    enabled: yes
+    state: started
+
+- name: Wait for Grafana to be ready
+  uri:
+    url: "http://localhost:{{ grafana_port }}/api/health"
+    method: GET
+  register: grafana_health
+  until: grafana_health.status == 200
+  retries: 30
+  delay: 10
+
+- name: Install Grafana plugins
+  grafana_plugin:
+    name: "{{ item }}"
+    grafana_url: "http://localhost:{{ grafana_port }}"
+    grafana_user: "{{ grafana_admin_user }}"
+    grafana_password: "{{ grafana_admin_password }}"
+  loop: "{{ grafana_plugins }}"
+  ignore_errors: yes
+
+- name: Create Grafana datasource directory
+  file:
+    path: /etc/grafana/provisioning/datasources
+    state: directory
+    mode: '0755'
+
+- name: Configure Zabbix datasource
+  template:
+    src: datasource-zabbix.json.j2
+    dest: /etc/grafana/provisioning/datasources/zabbix.yml
+    mode: '0644'
+  notify: restart grafana-server
+
+- name: Create Grafana dashboard directory
+  file:
+    path: /etc/grafana/provisioning/dashboards
+    state: directory
+    mode: '0755'
+
+- name: Configure dashboard provider
+  template:
+    src: dashboard-provider.yml.j2
+    dest: /etc/grafana/provisioning/dashboards/dashboard-provider.yml
+    mode: '0644'
+  notify: restart grafana-server
+
+- name: Create dashboard directory
+  file:
+    path: /var/lib/grafana/dashboards
+    state: directory
+    mode: '0755'
+    owner: grafana
+    group: grafana
+
+- name: Deploy sample dashboard
+  template:
+    src: flask-dashboard.json.j2
+    dest: /var/lib/grafana/dashboards/flask-dashboard.json
+    mode: '0644'
+    owner: grafana
+    group: grafana
+  notify: restart grafana-server
+
+- name: Allow Grafana port through firewall
+  ufw:
+    rule: allow
+    port: "{{ grafana_port }}"
+    proto: tcp
+  when: firewall_enabled | default(true)

@@ -1,0 +1,10 @@
+---
+# App VM specific configuration
+app_port: 5000
+app_service_name: "flask-app"
+app_install_path: "/opt/app"
+
+# Zabbix Agent configuration
+zabbix_agent_server: "{{ hostvars['zabbix-linux']['ansible_host'] }}"
+zabbix_agent_hostname: "app-linux"
+zabbix_agent_port: 10050

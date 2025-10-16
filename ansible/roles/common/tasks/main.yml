@@ -1,0 +1,56 @@
+---
+- name: Update package cache
+  apt:
+    update_cache: yes
+    cache_valid_time: 3600
+  when: update_packages | default(true)
+
+- name: Install common packages
+  apt:
+    name: "{{ common_packages }}"
+    state: present
+
+- name: Set timezone
+  timezone:
+    name: "{{ timezone }}"
+
+- name: Disable swap
+  shell: swapoff -a
+  ignore_errors: yes
+
+- name: Remove swap from fstab
+  lineinfile:
+    path: /etc/fstab
+    regexp: '^/swapfile'
+    state: absent
+  ignore_errors: yes
+
+- name: Configure UFW firewall
+  ufw:
+    state: enabled
+    policy: deny
+  when: firewall_enabled | default(true)
+
+- name: Allow SSH through firewall
+  ufw:
+    rule: allow
+    port: "22"
+    proto: tcp
+  when: firewall_enabled | default(true)
+
+- name: Allow HTTP through firewall
+  ufw:
+    rule: allow
+    port: "80"
+    proto: tcp
+  when: firewall_enabled | default(true)
+
+- name: Allow HTTPS through firewall
+  ufw:
+    rule: allow
+    port: "443"
+    proto: tcp
+  when: firewall_enabled | default(true)
+
+- name: Gather system facts
+  setup:

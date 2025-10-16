@@ -1,0 +1,107 @@
+---
+- name: Install MariaDB Server
+  apt:
+    name:
+      - mariadb-server
+      - mariadb-client
+    state: present
+
+- name: Start and enable MariaDB
+  systemd:
+    name: mariadb
+    enabled: yes
+    state: started
+
+- name: Set MariaDB root password
+  mysql_user:
+    name: root
+    password: "{{ zabbix_db_root_password }}"
+    login_unix_socket: /var/run/mysqld/mysqld.sock
+    state: present
+
+- name: Create Zabbix database
+  mysql_db:
+    name: "{{ zabbix_db_name }}"
+    state: present
+    login_user: root
+    login_password: "{{ zabbix_db_root_password }}"
+
+- name: Create Zabbix database user
+  mysql_user:
+    name: "{{ zabbix_db_user }}"
+    password: "{{ zabbix_db_password }}"
+    priv: "{{ zabbix_db_name }}.*:ALL"
+    state: present
+    login_user: root
+    login_password: "{{ zabbix_db_root_password }}"
+
+- name: Install Zabbix Server packages
+  apt:
+    name:
+      - zabbix-server-mysql
+      - zabbix-frontend-php
+      - zabbix-apache-conf
+      - zabbix-sql-scripts
+    state: present
+
+- name: Configure Zabbix Server
+  template:
+    src: zabbix_server.conf.j2
+    dest: /etc/zabbix/zabbix_server.conf
+    mode: '0644'
+  notify: restart zabbix-server
+
+- name: Import Zabbix database schema
+  shell: |
+    zcat /usr/share/zabbix-sql-scripts/mysql/server.sql.gz | mysql -u{{ zabbix_db_user }} -p{{ zabbix_db_password }} {{ zabbix_db_name }}
+  args:
+    creates: /var/lib/zabbix/.imported
+
+- name: Create import marker
+  file:
+    path: /var/lib/zabbix/.imported
+    state: touch
+
+- name: Configure Apache for Zabbix
+  template:
+    src: zabbix.conf.j2
+    dest: /etc/apache2/conf-available/zabbix.conf
+    mode: '0644'
+  notify: restart apache2
+
+- name: Enable Zabbix Apache configuration
+  apache2_module:
+    name: rewrite
+    state: present
+
+- name: Enable Zabbix site
+  apache2_site:
+    name: zabbix
+    state: present
+
+- name: Start and enable Zabbix Server
+  systemd:
+    name: zabbix-server
+    enabled: yes
+    state: started
+    daemon_reload: yes
+
+- name: Start and enable Apache
+  systemd:
+    name: apache2
+    enabled: yes
+    state: started
+
+- name: Allow Zabbix Server port through firewall
+  ufw:
+    rule: allow
+    port: "{{ zabbix_server_port }}"
+    proto: tcp
+  when: firewall_enabled | default(true)
+
+- name: Allow Zabbix Web port through firewall
+  ufw:
+    rule: allow
+    port: "{{ zabbix_web_port }}"
+    proto: tcp
+  when: firewall_enabled | default(true)

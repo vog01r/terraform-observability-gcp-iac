@@ -1,0 +1,12 @@
+---
+- name: restart flask-app
+  systemd:
+    name: "{{ app_service_name }}"
+    state: restarted
+    daemon_reload: yes
+
+- name: restart zabbix-agent
+  systemd:
+    name: zabbix-agent
+    state: restarted
+    daemon_reload: yes

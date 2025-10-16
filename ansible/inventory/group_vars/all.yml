@@ -1,0 +1,20 @@
+---
+# Common packages and configuration for all hosts
+common_packages:
+  - curl
+  - jq
+  - ufw
+  - iptables-persistent
+  - htop
+  - vim
+  - wget
+  - unzip
+
+# Timezone
+timezone: "Europe/Paris"
+
+# System updates
+update_packages: true
+
+# Firewall configuration
+firewall_enabled: true

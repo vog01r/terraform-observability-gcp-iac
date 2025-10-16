@@ -1,13 +1,5 @@
-provider "google" {
-  project     = "level-surfer-473817-p5"
-  region      = "us-central1"
-  zone        = "us-central1-a"
-  credentials = file("${path.module}/../key.json")
-}
-
-provider "random" {}
-
 terraform {
+  required_version = ">= 1.0"
   required_providers {
     google = {
       source  = "hashicorp/google"
@@ -15,11 +7,15 @@ terraform {
     }
     random = {
       source  = "hashicorp/random"
-      version = "~> 3.6"
-    }
-    local = {
-      source  = "hashicorp/local"
-      version = "~> 2.4"
+      version = "~> 3.1"
     }
   }
 }
+
+provider "google" {
+  project = var.project_id
+  region  = var.region
+  zone    = var.zone
+}
+
+provider "random" {}

@@ -1,0 +1,61 @@
+{
+  "dashboard": {
+    "id": null,
+    "title": "Flask App Monitoring",
+    "tags": ["flask", "observability"],
+    "timezone": "browser",
+    "panels": [
+      {
+        "id": 1,
+        "title": "Flask Uptime",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "flask.uptime",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "s"
+          }
+        },
+        "gridPos": {"h": 8, "w": 6, "x": 0, "y": 0}
+      },
+      {
+        "id": 2,
+        "title": "Flask Errors",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "flask.errors",
+            "refId": "A"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 6, "x": 6, "y": 0}
+      },
+      {
+        "id": 3,
+        "title": "Flask Error Rate",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "flask.error_rate",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percent"
+          }
+        },
+        "gridPos": {"h": 8, "w": 6, "x": 12, "y": 0}
+      }
+    ],
+    "time": {
+      "from": "now-1h",
+      "to": "now"
+    },
+    "refresh": "5s"
+  }
+}

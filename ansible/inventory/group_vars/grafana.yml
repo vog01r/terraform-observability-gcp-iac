@@ -1,0 +1,14 @@
+---
+# Grafana configuration
+grafana_port: 3000
+grafana_admin_user: "admin"
+grafana_admin_password: "admin"
+
+# Grafana plugins
+grafana_plugins:
+  - alexanderzobnin-zabbix-app
+
+# Zabbix datasource configuration
+zabbix_api_url: "http://{{ hostvars['zabbix-linux']['ansible_host'] }}/zabbix/api_jsonrpc.php"
+zabbix_username: "Admin"
+zabbix_password: "zabbix"

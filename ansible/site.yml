@@ -1,0 +1,20 @@
+---
+- name: Configure all hosts with common settings
+  hosts: all
+  roles:
+    - common
+
+- name: Install and configure Zabbix Server
+  hosts: zabbix
+  roles:
+    - zabbix_server
+
+- name: Install and configure Flask App with Zabbix Agent
+  hosts: app
+  roles:
+    - app
+
+- name: Install and configure Grafana
+  hosts: grafana
+  roles:
+    - grafana

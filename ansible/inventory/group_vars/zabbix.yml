@@ -1,0 +1,15 @@
+---
+# Zabbix Server configuration
+zabbix_version: "6.4"
+zabbix_db_name: "zabbix"
+zabbix_db_user: "zabbix"
+zabbix_db_password: "zabbix123"
+zabbix_db_root_password: "root123"
+
+# Zabbix Server ports
+zabbix_server_port: 10051
+zabbix_web_port: 80
+
+# Zabbix Admin credentials
+zabbix_admin_user: "Admin"
+zabbix_admin_password: "zabbix"
