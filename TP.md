@@ -1,202 +1,227 @@
-# TP Observabilité - Infrastructure GCP avec Terraform et Ansible
+# TP Observabilité - Stack de Monitoring Moderne
 
 ## 📋 Informations Générales
 
-- **Durée estimée** : 10 heures
+- **Durée estimée** : 8 heures
 - **Niveau** : Intermédiaire
-- **Technologies** : GCP, Terraform, Ansible, Zabbix, Grafana, Flask
-- **Objectif** : Déployer et configurer une infrastructure d'observabilité complète
+- **Technologies** : Prometheus, Grafana, Flask, Python, Cloud Provider
+- **Objectif** : Déployer et configurer une infrastructure d'observabilité moderne avec Prometheus et Grafana
 
 ## 🎯 Objectifs Pédagogiques
 
 À la fin de ce TP, vous serez capable de :
 
-1. **Infrastructure as Code** : Utiliser Terraform pour déployer des ressources GCP
-2. **Configuration Management** : Automatiser la configuration avec Ansible
-3. **Monitoring** : Mettre en place Zabbix pour la surveillance
-4. **Visualisation** : Configurer Grafana pour les tableaux de bord
-5. **Intégration** : Connecter tous les composants pour un monitoring complet
+1. **Monitoring Moderne** : Mettre en place Prometheus pour la collecte de métriques
+2. **Visualisation** : Configurer Grafana pour les tableaux de bord
+3. **Métriques d'Application** : Instrumenter une application Flask avec Prometheus
+4. **Intégration** : Connecter tous les composants pour un monitoring complet
+5. **Tests de Charge** : Utiliser des scripts pour générer du trafic et valider l'observabilité
 
 ## 🏗️ Architecture
 
 ```
 ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│   VM App        │    │   VM Zabbix     │    │   VM Grafana    │
-│   (Flask)       │    │   (Server)      │    │   (Dashboard)   │
+│   App Server    │    │ Prometheus      │    │   Grafana       │
+│   (Flask)       │    │ (Monitoring)    │    │ (Dashboard)     │
 │                 │    │                 │    │                 │
-│  - Flask App    │    │  - Zabbix       │    │  - Grafana      │
-│  - Zabbix Agent │◄──►│  - MariaDB      │◄──►│  - Zabbix Plugin│
-│  - Port 5000    │    │  - Port 10051   │    │  - Port 3000    │
+│  - Flask App    │    │  - Prometheus   │    │  - Grafana      │
+│  - Prometheus   │◄──►│  - Port 9090    │◄──►│  - Prometheus   │
+│  - Port 5000    │    │  - Scraping     │    │  - Port 3000    │
+│  - /metrics     │    │  - Storage      │    │  - Dashboards   │
 └─────────────────┘    └─────────────────┘    └─────────────────┘
          │                       │                       │
          └───────────────────────┼───────────────────────┘
                                  │
                     ┌─────────────────┐
-                    │   VPC GCP       │
-                    │   (10.42.0.0/24)│
+                    │   Network       │
+                    │   (Cloud/Local) │
                     └─────────────────┘
 ```
 
 ## 📚 Prérequis
 
 ### Logiciels Requis
-- **Terraform** >= 1.0
-- **Ansible** >= 2.9
-- **gcloud CLI** (Google Cloud SDK)
-- **Git**
-- **Make** (optionnel mais recommandé)
+- **Python 3** (pour l'application Flask et les scripts de test)
+- **Prometheus** (pour la collecte de métriques)
+- **Grafana** (pour la visualisation)
+- **Git** (pour récupérer le code)
+- **Accès réseau** aux serveurs (Cloud ou local)
 
-### Compte GCP
-- Projet GCP actif avec facturation activée
-- Service Account avec permissions :
-  - Compute Admin
-  - Network Admin
-  - Service Account User
-- Clé JSON du Service Account
-
-### Clé SSH
-- Paire de clés SSH générée
-- Clé publique accessible
+### Environnement
+- 3 serveurs ou machines virtuelles accessibles
+- Connexion réseau entre les composants
+- Ports ouverts : 5000 (Flask), 9090 (Prometheus), 3000 (Grafana)
+- Accès SSH ou console aux serveurs
 
 ## 🚀 Étapes du TP
 
 ### Étape 1 : Préparation de l'Environnement (30 min)
 
-#### 1.1 Configuration GCP
-```bash
-# Authentification GCP
-gcloud auth login
-gcloud config set project YOUR_PROJECT_ID
-
-# Configuration des variables d'environnement
-export GOOGLE_APPLICATION_CREDENTIALS="/path/to/your/service-account-key.json"
-```
-
-#### 1.2 Configuration du Projet
+#### 1.1 Configuration du Projet
 ```bash
 # Cloner le projet
 git clone <REPO_URL>
 cd observability
-
-# Configuration des variables
-cp terraform/terraform.tfvars.example terraform/terraform.tfvars
 ```
 
-#### 1.3 Édition du fichier terraform.tfvars
-```hcl
-project_id = "votre-project-id"
-region     = "us-central1"
-zone       = "us-central1-a"
+#### 1.2 Configuration des Adresses IP
+Notez les adresses IP de vos serveurs :
+- **App Server** : `APP_IP` (Flask sur port 5000)
+- **Prometheus Server** : `PROMETHEUS_IP` (Prometheus sur port 9090)
+- **Grafana Server** : `GRAFANA_IP` (Grafana sur port 3000)
 
-ssh_user             = "ubuntu"
-ssh_public_key_path  = "~/.ssh/id_rsa.pub"
-```
-
-### Étape 2 : Déploiement Infrastructure (1h)
-
-#### 2.1 Initialisation Terraform
+#### 1.3 Vérification de la Connectivité
 ```bash
-make init
-# ou
-terraform -chdir=terraform init
+# Tester l'accès aux serveurs
+ping APP_IP
+ping PROMETHEUS_IP
+ping GRAFANA_IP
+
+# Vérifier les ports
+telnet APP_IP 5000
+telnet PROMETHEUS_IP 9090
+telnet GRAFANA_IP 3000
 ```
 
-#### 2.2 Planification
+### Étape 2 : Installation des Services (1h)
+
+#### 2.1 Installation de l'Application Flask
+Sur le serveur App :
 ```bash
-make plan
-# ou
-terraform -chdir=terraform plan
+# Installer Python et les dépendances
+sudo apt update
+sudo apt install -y python3 python3-pip
+
+# Installer Flask et Prometheus client
+pip3 install flask prometheus_client
+
+# Déployer l'application
+# (Le code de l'application sera fourni)
 ```
 
-**Vérifications attendues :**
-- 1 VPC network
-- 1 subnet
-- 5 firewall rules
-- 3 instances Compute Engine
-- 1 fichier d'inventaire Ansible
-
-#### 2.3 Déploiement
+#### 2.2 Installation de Prometheus
+Sur le serveur Prometheus :
 ```bash
-make apply
-# ou
-terraform -chdir=terraform apply -auto-approve
+# Télécharger et installer Prometheus
+wget https://github.com/prometheus/prometheus/releases/download/v2.45.0/prometheus-2.45.0.linux-amd64.tar.gz
+tar xzf prometheus-2.45.0.linux-amd64.tar.gz
+sudo mv prometheus-2.45.0.linux-amd64 /opt/prometheus
+
+# Configurer Prometheus
+# (La configuration sera fournie)
 ```
 
-**Résultats attendus :**
-- Infrastructure créée avec succès
-- Adresses IP assignées
-- Inventaire Ansible généré
-
-### Étape 3 : Configuration des VMs (2h)
-
-#### 3.1 Vérification de la Connectivité SSH
+#### 2.3 Installation de Grafana
+Sur le serveur Grafana :
 ```bash
-make wait-ssh
-# ou
-bash scripts/check-ssh.sh
+# Installer Grafana
+sudo apt install -y apt-transport-https software-properties-common
+wget -q -O - https://packages.grafana.com/gpg.key | sudo apt-key add -
+echo "deb https://packages.grafana.com/oss/deb stable main" | sudo tee -a /etc/apt/sources.list.d/grafana.list
+sudo apt update
+sudo apt install -y grafana
+
+# Démarrer Grafana
+sudo systemctl enable grafana-server
+sudo systemctl start grafana-server
 ```
 
-#### 3.2 Exécution du Playbook Ansible
+### Étape 3 : Configuration et Vérification (30 min)
+
+#### 3.1 Configuration des Services
 ```bash
-make provision
-# ou
-ansible-playbook -i ansible/inventory/inventory.ini ansible/site.yml
+# Configurer Prometheus pour scraper Flask
+# (Modifier le fichier de configuration Prometheus)
+
+# Configurer Grafana pour se connecter à Prometheus
+# (Ajouter la datasource Prometheus)
 ```
 
-**Étapes d'exécution :**
-1. Configuration commune (packages, firewall, timezone)
-2. Installation Zabbix Server + MariaDB
-3. Configuration Flask App + Agent Zabbix
-4. Installation Grafana + Plugin Zabbix
+#### 3.2 Vérification des Services
+```bash
+# Vérifier Flask
+curl http://APP_IP:5000/health
+curl http://APP_IP:5000/metrics
+
+# Vérifier Prometheus
+curl http://PROMETHEUS_IP:9090/api/v1/query?query=up
+
+# Vérifier Grafana
+curl -I http://GRAFANA_IP:3000
+```
+
+**Services à vérifier :**
+1. Flask App avec métriques Prometheus exposées
+2. Prometheus Server collectant les métriques
+3. Grafana connecté à Prometheus
 
 ### Étape 4 : Validation et Tests (1h)
 
-#### 4.1 Vérification des Services
+#### 4.1 Test de l'Application Flask
 ```bash
-# Affichage des URLs
-make outputs
-
-# Test de l'application Flask
+# Test des endpoints
 curl http://APP_IP:5000/
 curl http://APP_IP:5000/health
 curl http://APP_IP:5000/stats
+curl http://APP_IP:5000/error
+curl http://APP_IP:5000/slow
+
+# Vérifier les métriques Prometheus
+curl http://APP_IP:5000/metrics
 ```
 
 #### 4.2 Accès aux Interfaces Web
 
-**Zabbix (http://ZABBIX_IP/zabbix)**
-- Utilisateur : `Admin`
-- Mot de passe : `zabbix`
-- Vérifier la présence du host `app-linux`
+**Prometheus (http://PROMETHEUS_IP:9090)**
+- Interface web Prometheus
+- Vérifier les targets dans Status → Targets
+- Consulter les métriques dans Graph
 
 **Grafana (http://GRAFANA_IP:3000)**
 - Utilisateur : `admin`
 - Mot de passe : `admin`
-- Vérifier la datasource Zabbix
-- Consulter le dashboard Flask
+- Vérifier la datasource Prometheus
+- Explorer les métriques Flask
 
 ### Étape 5 : Exploration et Personnalisation (2h)
 
-#### 5.1 Configuration Zabbix
-1. **Ajout d'Items Personnalisés**
-   - Aller dans Configuration → Hosts → app-linux → Items
-   - Vérifier les items `flask.*`
+#### 5.1 Exploration des Métriques Prometheus
+1. **Métriques Disponibles**
+   - `flask_requests_total` : Nombre total de requêtes par endpoint et statut
+   - `flask_errors_total` : Erreurs par type (health_check_failed, database_error, timeout_error, etc.)
+   - `flask_error_rate` : Taux d'erreur en pourcentage
+   - `flask_uptime_seconds` : Temps de fonctionnement de l'application
+   - `flask_request_duration_seconds` : Durée des requêtes (histogramme)
 
-2. **Création de Triggers**
-   - Créer un trigger pour `flask.error_rate > 5%`
-   - Configurer les actions et notifications
+2. **Types d'Erreurs Générées**
+   - **Erreurs de santé** : 20% de chance sur `/health`
+   - **Erreurs de base de données** : Via `/error`
+   - **Timeouts** : 30% de chance sur `/slow`
+   - **Erreurs de validation, permission, timeout** : Via `/error`
 
-3. **Dashboard Zabbix**
-   - Créer un dashboard personnalisé
-   - Ajouter des graphiques pour les métriques Flask
+3. **Requêtes PromQL**
+   ```promql
+   # Taux de requêtes par seconde
+   sum(rate(flask_requests_total[5m]))
+   
+   # Taux d'erreur
+   flask_error_rate
+   
+   # Erreurs par type
+   sum by (error_type) (flask_errors_total)
+   
+   # Temps de réponse (95e percentile)
+   histogram_quantile(0.95, rate(flask_request_duration_seconds_bucket[5m]))
+   ```
 
 #### 5.2 Configuration Grafana
 1. **Dashboard Personnalisé**
    - Créer un nouveau dashboard
    - Ajouter des panels pour :
-     - Uptime de l'application
-     - Taux d'erreur
-     - Nombre de requêtes
+     - Taux de requêtes (Graph)
+     - Taux d'erreur (Gauge)
+     - Erreurs par type (Bar chart)
+     - Uptime (Stat)
 
 2. **Alerting**
    - Configurer des alertes basées sur les métriques
@@ -204,127 +229,158 @@ curl http://APP_IP:5000/stats
 
 ### Étape 6 : Tests de Charge et Monitoring (1h)
 
-#### 6.1 Génération de Charge
+#### 6.1 Scripts de Test Disponibles
+Le projet inclut plusieurs scripts pour générer du trafic et tester l'observabilité :
+
+**Scripts principaux :**
+- `quick_test.sh` : Test rapide avec génération d'erreurs
+- `generate_traffic.sh` : Trafic contrôlé avec nombre de requêtes et durée
+- `background_traffic.sh` : Trafic en arrière-plan continu
+- `traffic_spike.sh` : Stress test avec plusieurs threads
+- `continuous_traffic.sh` : Trafic continu avec différentes intensités
+
+#### 6.2 Utilisation des Scripts
 ```bash
-# Script de test simple
-for i in {1..100}; do
-  curl http://APP_IP:5000/health &
-done
-wait
+# Test rapide (recommandé pour débuter)
+./scripts/quick_test.sh
+
+# Génération de trafic contrôlé
+./scripts/generate_traffic.sh 100 60
+
+# Trafic en arrière-plan
+./scripts/background_traffic.sh start
+./scripts/background_traffic.sh status
+./scripts/background_traffic.sh stop
+
+# Stress test
+./scripts/traffic_spike.sh 5 30
+
+# Trafic continu
+./scripts/continuous_traffic.sh high
 ```
 
-#### 6.2 Observation des Métriques
-- Surveiller les graphiques en temps réel
-- Vérifier la détection des erreurs
-- Analyser les performances
+#### 6.3 Observation des Métriques
+- Surveiller les graphiques en temps réel dans Grafana
+- Vérifier la collecte des métriques dans Prometheus
+- Analyser les performances et les erreurs
+- Utiliser les requêtes PromQL pour explorer les données
 
 ### Étape 7 : Nettoyage (30 min)
 
-#### 7.1 Destruction de l'Infrastructure
+#### 7.1 Arrêt des Services
 ```bash
-make destroy
-# ou
-terraform -chdir=terraform destroy -auto-approve
+# Arrêter les services sur chaque serveur
+sudo systemctl stop flask-app
+sudo systemctl stop prometheus
+sudo systemctl stop grafana-server
+
+# Optionnel : Désinstaller les composants
+# (selon les besoins de l'environnement)
 ```
 
 ## 📊 Captures d'Écran Attendues
 
-### 1. Interface Zabbix
-- **Login** : Page de connexion Zabbix
-- **Hosts** : Liste des hosts avec `app-linux` en statut "Available"
-- **Items** : Items personnalisés `flask.*` avec données
-- **Dashboard** : Graphiques des métriques Flask
+### 1. Interface Prometheus
+- **Targets** : Page Status → Targets avec flask-app en statut "UP"
+- **Graph** : Requêtes PromQL avec métriques Flask
+- **Alerts** : Configuration d'alertes (optionnel)
 
 ### 2. Interface Grafana
 - **Login** : Page de connexion Grafana
-- **Datasources** : Datasource Zabbix configurée et testée
-- **Dashboard** : Dashboard Flask avec 3 panels fonctionnels
-- **Explore** : Requêtes sur les métriques Zabbix
+- **Datasources** : Datasource Prometheus configurée et testée
+- **Dashboard** : Dashboard Flask avec panels fonctionnels
+- **Explore** : Requêtes PromQL sur les métriques
 
 ### 3. Application Flask
 - **Home** : Page d'accueil avec message de statut
 - **Health** : Endpoint de santé avec réponse JSON
 - **Stats** : Métriques en temps réel (uptime, erreurs, taux)
+- **Metrics** : Endpoint Prometheus avec métriques exposées
 
 ## 🎯 Barème de Validation
 
 | Critère | Points | Description |
 |---------|--------|-------------|
-| **Infrastructure** | 20 | Déploiement Terraform réussi |
-| **Configuration** | 20 | Playbook Ansible sans erreur |
-| **Zabbix** | 20 | Host configuré, items fonctionnels |
-| **Grafana** | 20 | Datasource OK, dashboard opérationnel |
-| **Tests** | 10 | Application Flask accessible |
+| **Installation** | 25 | Services installés et configurés |
+| **Prometheus** | 25 | Collecte de métriques fonctionnelle |
+| **Grafana** | 25 | Datasource OK, dashboard opérationnel |
+| **Tests** | 15 | Application Flask et scripts de test |
 | **Documentation** | 10 | Captures d'écran, rapport |
 
 **Total : 100 points**
 
 ### Critères de Réussite
-- ✅ Infrastructure déployée sans erreur
+- ✅ Services installés et configurés sans erreur
 - ✅ Tous les services accessibles
-- ✅ Monitoring fonctionnel
-- ✅ Dashboard avec données
-- ✅ Tests de charge réussis
+- ✅ Prometheus collecte les métriques
+- ✅ Grafana dashboard avec données
+- ✅ Scripts de test fonctionnels
 
 ## 🔧 Dépannage
 
 ### Problèmes Courants
 
-#### 1. Erreur de Quota GCP
+#### 1. Problème de Connectivité Réseau
 ```
-Error: Quota 'CPUS_ALL_REGIONS' exceeded
+Connection refused ou timeout
 ```
-**Solution** : Réduire les types de machines ou demander une augmentation de quota
+**Solution** : Vérifier les règles de firewall et la connectivité réseau entre les serveurs
 
-#### 2. Échec de Connexion SSH
+#### 2. Service Non Accessible
 ```
-ssh: connect to host IP port 22: Connection timed out
+Service not found ou port fermé
 ```
-**Solution** : Vérifier les firewall rules et attendre le démarrage des VMs
+**Solution** : Vérifier que les services sont démarrés et que les ports sont ouverts
 
-#### 3. Playbook Ansible Échoue
+#### 3. Prometheus Ne Collecte Pas les Métriques
 ```
-TASK [zabbix_server : Import Zabbix database schema] FAILED
+Target flask-app is DOWN
 ```
-**Solution** : Vérifier la connectivité réseau et les permissions
+**Solution** : Vérifier que Flask expose `/metrics` et que Prometheus peut accéder au port 5000
 
 #### 4. Datasource Grafana Non Fonctionnelle
 ```
-Failed to connect to Zabbix API
+Failed to connect to Prometheus
 ```
-**Solution** : Vérifier l'URL de l'API et les credentials
+**Solution** : Vérifier l'URL Prometheus et la connectivité réseau
 
 ## 📚 Ressources Supplémentaires
 
 ### Documentation
-- [Terraform GCP Provider](https://registry.terraform.io/providers/hashicorp/google/latest/docs)
-- [Ansible GCP Modules](https://docs.ansible.com/ansible/latest/collections/google/cloud/)
-- [Zabbix Documentation](https://www.zabbix.com/documentation/current)
+- [Prometheus Documentation](https://prometheus.io/docs/)
 - [Grafana Documentation](https://grafana.com/docs/)
+- [Prometheus Python Client](https://github.com/prometheus/client_python)
+- [Flask Documentation](https://flask.palletsprojects.com/)
 
 ### Commandes Utiles
 ```bash
-# Vérifier l'état des VMs
-gcloud compute instances list
-
-# Consulter les logs
-gcloud logging read "resource.type=gce_instance"
-
 # Tester la connectivité
-telnet IP 22
-telnet IP 10051
+telnet IP 5000
+telnet IP 9090
 telnet IP 3000
 
-# Debug Ansible
-ansible-playbook -i inventory/inventory.ini site.yml -vvv
+# Vérifier les services
+systemctl status flask-app
+systemctl status prometheus
+systemctl status grafana-server
+
+# Consulter les logs
+journalctl -u flask-app -f
+journalctl -u prometheus -f
+journalctl -u grafana-server -f
+
+# Tester les métriques
+curl http://APP_IP:5000/metrics
+curl http://PROMETHEUS_IP:9090/api/v1/query?query=up
 ```
 
 ## 🎉 Conclusion
 
 Ce TP vous a permis de :
-- Maîtriser l'Infrastructure as Code avec Terraform
-- Automatiser la configuration avec Ansible
-- Mettre en place un monitoring complet
-- Intégrer des outils de visualisation
+- Déployer une stack de monitoring moderne (Prometheus + Grafana)
+- Instrumenter une application avec des métriques Prometheus
+- Créer des dashboards de visualisation
+- Automatiser les tests de charge
+- Comprendre les concepts d'observabilité moderne
 
-Ces compétences sont essentielles pour tout ingénieur DevOps/Cloud souhaitant déployer des infrastructures modernes et observables.
+Ces compétences sont essentielles pour tout ingénieur DevOps/Cloud souhaitant mettre en place des infrastructures observables avec des outils de monitoring de nouvelle génération.
