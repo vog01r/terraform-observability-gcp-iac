@@ -1,43 +1,83 @@
-# 🚀 Guide d'Installation - Stack Observabilité
+# 📘 Guide d'installation
 
-## 📋 Vue d'ensemble
+Ce document complète le `README.md` principal et détaille la mise en place de la stack Observabilité GCP.
 
-Ce guide vous permet d'installer et de configurer la stack d'observabilité complète avec :
-- **Application Flask** avec métriques Prometheus
-- **Prometheus** pour la collecte de métriques
-- **Grafana** pour la visualisation
-- **Scripts de test** pour générer du trafic
+## 1. Prérequis
 
-## 🏗️ Architecture
+- Compte Google Cloud avec facturation activée
+- Terraform ≥ 1.5, Ansible ≥ 2.14, gcloud CLI, jq
+- Clé SSH publique (par défaut `~/.ssh/id_rsa.pub`)
+- Fichier JSON d’un service account GCP (rôle Compute Admin)
 
-```
-┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│   App Server    │    │ Prometheus      │    │   Grafana       │
-│   (Flask)       │    │ (Monitoring)    │    │ (Dashboard)     │
-│                 │    │                 │    │                 │
-│  - Flask App    │    │  - Prometheus   │    │  - Grafana      │
-│  - /metrics     │◄──►│  - Port 9090    │◄──►│  - Port 3000    │
-│  - Port 5000    │    │  - Scraping     │    │  - Dashboards   │
-└─────────────────┘    └─────────────────┘    └─────────────────┘
+## 2. Clonage du dépôt
+
+```bash
+git clone git@github.com:vog01r/terraform-observability-gcp-iac.git
+cd terraform-observability-gcp-iac
 ```
 
-## 📦 Fichiers Inclus
+## 3. Configuration Terraform
 
-### Application Flask
-- `app/flask_app.py` - Code source de l'application
-- `app/requirements.txt` - Dépendances Python
-- `app/flask-app.service` - Service systemd
-- `app/README.md` - Documentation de l'application
+```bash
+cp terraform/terraform.tfvars.example terraform/terraform.tfvars
+vim terraform/terraform.tfvars
+# -> project_id, region, zone, ssh_user, ssh_public_key_path
+export GOOGLE_APPLICATION_CREDENTIALS="/chemin/cle-gcp.json"
+```
 
-### Configuration Prometheus
-- `prometheus/prometheus.yml` - Configuration Prometheus
-- `prometheus/README.md` - Documentation Prometheus
+## 4. Déploiement complet
 
-### Scripts de Test
-- `scripts/quick_test.sh` - Test rapide
-- `scripts/generate_traffic.sh` - Génération de trafic contrôlé
-- `scripts/background_traffic.sh` - Trafic en arrière-plan
-- `scripts/traffic_spike.sh` - Stress test
+```bash
+make all
+```
+
+Cette commande enchaîne :
+
+1. `terraform init/plan/apply`
+2. Attente de la connectivité SSH (`scripts/check-ssh.sh`)
+3. `ansible-playbook ansible/site.yml`
+
+## 5. Résultats
+
+```
+App      : http://APP_IP:5000
+Zabbix   : http://ZABBIX_IP/zabbix (Admin / zabbix)
+Grafana  : http://GRAFANA_IP:3000 (admin / admin)
+```
+
+Consulter `terraform -chdir=terraform output` pour afficher les IP/URLs.
+
+## 6. Validation rapide
+
+```bash
+curl http://APP_IP:5000/health
+ansible all -i ansible/inventory/inventory.ini -m ping
+```
+
+## 7. Nettoyage
+
+```bash
+make destroy
+```
+
+## 8. Dépannage
+
+- Erreur quota GCP : réduire le type de VM dans `terraform.tfvars`
+- SSH KO : vérifier firewall GCP et clés SSH
+- Playbook échoue : relancer `make provision` après résolution (logs dans `/var/log/ansible.log` si configuré)
+
+## 9. Assets visuels
+
+- `docs/assets/architecture.png`
+- `docs/assets/grafana-dashboard.png`
+
+Ces visuels sont prêts pour un post LinkedIn.
+
+## 10. Ressources complémentaires
+
+- README principal : opérations en 5 minutes
+- `docs/TP.md` : scénario pédagogique
+- `docs/Cours_Observabilite.md` : support de formation complet
 - `scripts/demo_observability.sh` - Démonstration interactive
 
 ## 🚀 Installation Rapide

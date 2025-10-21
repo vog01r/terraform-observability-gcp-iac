@@ -1,54 +1,20 @@
-- name: Configuration de la gateway main-gw (sans NAT)
-  hosts: main-gw
-  become: true
+- name: configure common baseline
+  hosts: all
   gather_facts: true
-  tasks:
-    - name: Mise à jour du cache APT
-      apt:
-        update_cache: true
+  roles:
+    - common
 
-    - name: Mise à niveau complète
-      apt:
-        upgrade: dist
+- name: configure zabbix server
+  hosts: zabbix
+  roles:
+    - zabbix_server
 
-- name: Mise à jour de la machine main-k8s
-  hosts: main-k8s
-  become: true
-  tasks:
-    - name: Mise à jour du cache APT
-      apt:
-        update_cache: true
+- name: configure flask app & agent
+  hosts: app
+  roles:
+    - app
 
-    - name: Mise à niveau complète
-      apt:
-        upgrade: dist
-
-# Configuration réseau supprimée - main-k8s a maintenant sa propre IP publique
-
-- name: Mise à jour de la machine main-obs
-  hosts: main-obs
-  become: true
-  tasks:
-    - name: Mise à jour du cache APT
-      apt:
-        update_cache: true
-
-    - name: Mise à niveau complète
-      apt:
-        upgrade: dist
-
-# Configuration réseau supprimée - main-obs a maintenant sa propre IP publique
-
-- name: Mise à jour de la machine main-app
-  hosts: main-app
-  become: true
-  tasks:
-    - name: Mise à jour du cache APT
-      apt:
-        update_cache: true
-
-    - name: Mise à niveau complète
-      apt:
-        upgrade: dist
-
-# Configuration réseau supprimée - main-app a maintenant sa propre IP publique
+- name: configure grafana dashboards
+  hosts: grafana
+  roles:
+    - grafana
