@@ -2,8 +2,6 @@
 
 > Plateforme d’observabilité clé en main : provision GCP automatisé par Terraform, configuration applicative via Ansible, dashboards prêts à l’emploi.
 
-![Architecture Observabilité](docs/assets/architecture.png)
-
 ## Pourquoi ce dépôt ?
 
 - Illustrer un **cas d’usage complet** : application, collecte de métriques, visualisation.
@@ -69,7 +67,7 @@ Résultat :
 ## Licence & Contact
 
 - Licence : MIT. Merci de détruire l’infrastructure après usage (`make destroy`).
-- Contact : `vog01r` / contact@vog01r.dev
+- Contact : `vog01r` / kevin.hamon@intra-tech.fr
 
 ---
 
