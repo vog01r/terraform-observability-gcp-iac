@@ -71,7 +71,7 @@ make destroy
 - `docs/assets/architecture.png`
 - `docs/assets/grafana-dashboard.png`
 
-Ces visuels sont prêts pour un post LinkedIn.
+Ces visuels peuvent illustrer la stack d’observabilité dans vos supports.
 
 ## 10. Ressources complémentaires
 

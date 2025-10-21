@@ -1,6 +1,6 @@
 # Observabilité GCP · Infrastructure as Code
 
-> Plateforme d’observabilité clé en main : provision GCP automatisé par Terraform, configuration applicative via Ansible, dashboards prêts à l’emploi pour présenter le projet sur LinkedIn.
+> Plateforme d’observabilité clé en main : provision GCP automatisé par Terraform, configuration applicative via Ansible, dashboards prêts à l’emploi.
 
 ![Architecture Observabilité](docs/assets/architecture.png)
 
@@ -69,9 +69,9 @@ Résultat :
 ## Licence & Contact
 
 - Licence : MIT. Merci de détruire l’infrastructure après usage (`make destroy`).
-- Contact : `vog01r` sur LinkedIn / contact@vog01r.dev
+- Contact : `vog01r` / contact@vog01r.dev
 
 ---
 
-> Ce dépôt est prêt pour la mise en avant sur LinkedIn : capture de dashboard dans `docs/assets/`, README orienté storytelling, sections claires pour expliquer la stack.
+> Ce dépôt est prêt pour mettre en avant une stack d’observabilité complète : capture de dashboard dans `docs/assets/`, README orienté storytelling, sections claires pour expliquer la stack.
 
